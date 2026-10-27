@@ -7,6 +7,8 @@ from django.db import models
 from django.db.models import F, IntegerField, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, Lower
 
+from .lookups import build_cover_url
+
 
 class Book(models.Model):
     """A book that belongs to one reader."""
@@ -17,6 +19,9 @@ class Book(models.Model):
         related_name="books",
     )
     title = models.CharField(max_length=200)
+    # The numeric Open Library cover id, not a URL. The address is built from
+    # it when needed, so the stored value stays independent of the cover host.
+    cover_id = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         # One reader cannot hold "Wings of Fire" and "wings of fire" as two
@@ -29,6 +34,11 @@ class Book(models.Model):
                 name="library_book_unique_title_per_owner",
             ),
         ]
+
+    @property
+    def cover_url(self):
+        """Return the Open Library cover address for this book, or None."""
+        return build_cover_url(self.cover_id)
 
     def __str__(self):
         """Return the title with its reader, so admin rows are distinguishable."""

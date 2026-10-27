@@ -9,15 +9,81 @@
      href="{% url 'library:manage_cards' %}">Back to manage cards</a>
 </div>
 
+<form method="get" class="row g-2 align-items-end mb-4">
+  <div class="col-sm">
+    <label class="form-label" for="tcgdex-search">Look up a card on TCGdex</label>
+    <input type="search" class="form-control" id="tcgdex-search" name="q"
+           value="{{ query }}" placeholder="Search by card name">
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-outline-primary">Search TCGdex</button>
+  </div>
+</form>
+
+{% if lookup_error %}
+<div class="alert alert-warning" role="alert">{{ lookup_error }}</div>
+{% endif %}
+
+{% if selected %}
+<div class="alert alert-info" role="alert">
+  Selected <strong>{{ selected.name }}</strong> ({{ selected.id }})
+  from {{ selected.set.name }}.
+  {% if not selected.image %}
+  TCGdex has no artwork for this card, so the tile will use the placeholder.
+  {% endif %}
+</div>
+{% endif %}
+
+{% if results %}
+<section class="mb-4">
+  <h2 class="h4">TCGdex results for "{{ query }}"</h2>
+  <p class="text-secondary small">
+    Showing the first {{ results|length }} matches.
+  </p>
+  <div class="row row-cols-1 row-cols-md-2 g-3">
+    {% for result in results %}
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body d-flex gap-3">
+          {% if result.image_url %}
+          <img src="{{ result.image_url }}" alt="{{ result.name }}"
+               class="lookup-cover">
+          {% else %}
+          <div class="lookup-cover lookup-placeholder d-flex align-items-center
+                      justify-content-center">
+            <span>No artwork</span>
+          </div>
+          {% endif %}
+          <div>
+            <h3 class="h6 mb-1">{{ result.name }}</h3>
+            <p class="small text-secondary mb-2">
+              {{ result.id }}, card #{{ result.local_id }}
+            </p>
+            <a class="btn btn-sm btn-primary"
+               href="{% url 'library:manage_card_new' %}?tcgdex_id={{ result.id|urlencode }}">
+              Use this card
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <div class="card">
   <div class="card-body">
+    <h2 class="h5 mb-3">Card details</h2>
     <form method="post" novalidate>
       {% csrf_token %}
       {% if form.non_field_errors %}
       <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
       {% endif %}
       {% for field in form %}
-      {% if field.name == "for_sale" %}
+      {% if field.is_hidden %}
+      {{ field }}
+      {% elif field.name == "for_sale" %}
       <div class="form-check mb-3">
         {{ field }}
         <label class="form-check-label" for="{{ field.id_for_label }}">

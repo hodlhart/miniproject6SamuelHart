@@ -7,14 +7,21 @@ from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .decorators import parent_required
-from .forms import CardForm, LogReadingForm, ReaderCreationForm
+from .forms import CardForm, LogReadingForm, PickBookForm, ReaderCreationForm
+from .lookups import (
+    LookupUnavailable,
+    card_initial_from_record,
+    fetch_tcgdex_card,
+    search_open_library,
+    search_tcgdex,
+)
 from .models import Book, Card, Purchase, Reading, annotate_chapter_balance
 
 
@@ -37,6 +44,12 @@ def _reader_balance(reader):
 def _get_active_reader(reader_id):
     """Return an active reader, or 404 so a hidden reader leaves the site."""
     return get_object_or_404(get_user_model(), pk=reader_id, is_active=True)
+
+
+def _reading_message(reading):
+    """Return the success message for a newly logged reading."""
+    unit = "chapter" if reading.chapters == 1 else "chapters"
+    return f"Logged {reading.chapters} {unit} of {reading.book.title}."
 
 
 def register(request):
@@ -102,24 +115,57 @@ def wallet(request, reader_id):
 
 
 def log_reading(request, reader_id):
-    """Record a reading for one reader, optionally creating a new book first."""
+    """Record a reading, offering Open Library matches for a new title."""
     reader = _get_active_reader(reader_id)
+    owned_books = reader.books.order_by("title")
+    lookup_results = None
+    lookup_title = ""
+    lookup_chapters = None
+    lookup_error = None
+
     if request.method == "POST":
-        form = LogReadingForm(request.POST, reader=reader)
-        if form.is_valid():
-            reading = form.save()
-            unit = "chapter" if reading.chapters == 1 else "chapters"
-            messages.success(
-                request,
-                f"Logged {reading.chapters} {unit} of {reading.book.title}.",
-            )
-            return redirect("library:wallet", reader_id=reader.pk)
+        action = request.POST.get("action", "log")
+        if action == "pick":
+            pick_form = PickBookForm(request.POST, reader=reader)
+            if pick_form.is_valid():
+                reading = pick_form.save()
+                messages.success(request, _reading_message(reading))
+                return redirect("library:wallet", reader_id=reader.pk)
+            messages.error(request, "That book could not be logged. Try again.")
+            form = LogReadingForm(reader=reader)
+        else:
+            form = LogReadingForm(request.POST, reader=reader)
+            if form.is_valid():
+                new_title = (form.cleaned_data.get("new_title") or "").strip()
+                if new_title and form.owned_book() is None:
+                    lookup_title = new_title
+                    lookup_chapters = form.cleaned_data["chapters"]
+                    try:
+                        lookup_results = search_open_library(new_title)
+                    except LookupUnavailable:
+                        lookup_error = (
+                            "Open Library could not be reached. "
+                            "You can still log the book without a cover."
+                        )
+                else:
+                    reading = form.save()
+                    messages.success(request, _reading_message(reading))
+                    return redirect("library:wallet", reader_id=reader.pk)
     else:
         form = LogReadingForm(reader=reader)
+
     return render(
         request,
         "library/log_reading.html",
-        {"reader": reader, "form": form},
+        {
+            "reader": reader,
+            "form": form,
+            "owned_books": owned_books,
+            "lookup_results": lookup_results,
+            "lookup_title": lookup_title,
+            "lookup_chapters": lookup_chapters,
+            "lookup_error": lookup_error,
+        },
     )
 
 
@@ -238,13 +284,50 @@ def manage_cards(request):
 
 @parent_required
 def manage_card_new(request):
-    """Add a card to the inventory with the price the parent types."""
+    """Add a card by hand or from a TCGdex lookup, keeping the typed price."""
+    query = request.GET.get("q", "").strip()
+    tcgdex_id = request.GET.get("tcgdex_id", "").strip()
+    results = []
+    selected = None
+    lookup_error = None
+
     if request.method == "POST":
         form = CardForm(request.POST)
         if form.is_valid():
-            card = form.save()
-            messages.success(request, f"Added {card.name} to the inventory.")
-            return redirect("library:manage_cards")
+            try:
+                with transaction.atomic():
+                    card = form.save()
+            except IntegrityError:
+                messages.error(request, "This card is already in the inventory.")
+            else:
+                messages.success(request, f"Added {card.name} to the inventory.")
+                return redirect("library:manage_cards")
     else:
-        form = CardForm()
-    return render(request, "library/manage_card_new.html", {"form": form})
+        initial = {}
+        if tcgdex_id:
+            try:
+                selected = fetch_tcgdex_card(tcgdex_id)
+            except LookupUnavailable:
+                lookup_error = "TCGdex could not be reached. Try again."
+            if selected:
+                initial = card_initial_from_record(selected)
+            else:
+                messages.error(request, "TCGdex has no card with that id.")
+        form = CardForm(initial=initial)
+        if query:
+            try:
+                results = search_tcgdex(query)
+            except LookupUnavailable:
+                lookup_error = "TCGdex could not be reached. Try again."
+
+    return render(
+        request,
+        "library/manage_card_new.html",
+        {
+            "form": form,
+            "query": query,
+            "results": results,
+            "selected": selected,
+            "lookup_error": lookup_error,
+        },
+    )

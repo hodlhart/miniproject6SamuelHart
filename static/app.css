@@ -11,3 +11,19 @@
     color: #6c757d;
     font-size: 0.875rem;
 }
+
+/* Lookup rows use the same small cover block whether or not artwork exists. */
+.lookup-cover {
+    width: 96px;
+    height: 144px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background-color: #f8f9fa;
+}
+
+.lookup-cover.lookup-placeholder {
+    border: 1px dashed #adb5bd;
+    color: #6c757d;
+    font-size: 0.75rem;
+    text-align: center;
+}

@@ -52,6 +52,12 @@ def build_tcgdex_id(set_name, number):
 class CardForm(forms.ModelForm):
     """Add a card, keeping the price the parent types rather than a tier default."""
 
+    catalogue_id = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.HiddenInput,
+    )
+
     class Meta:
         model = Card
         fields = [
@@ -82,25 +88,31 @@ class CardForm(forms.ModelForm):
         }
 
     def clean(self):
-        """Refuse a second card with the same set and number."""
+        """Fill the catalogue id and refuse a card already in the inventory."""
         cleaned_data = super().clean()
+        catalogue_id = (cleaned_data.get("catalogue_id") or "").strip()
         set_name = cleaned_data.get("set_name")
         number = cleaned_data.get("number")
-        if set_name and number:
-            tcgdex_id = build_tcgdex_id(set_name, number)
-            existing = Card.objects.filter(tcgdex_id=tcgdex_id)
+        if not catalogue_id and set_name and number:
+            catalogue_id = build_tcgdex_id(set_name, number)
+        if catalogue_id:
+            existing = Card.objects.filter(tcgdex_id=catalogue_id)
             if self.instance.pk:
                 existing = existing.exclude(pk=self.instance.pk)
             if existing.exists():
                 raise forms.ValidationError(
-                    "A card from this set with this number already exists."
+                    "This card is already in the inventory."
                 )
+        cleaned_data["catalogue_id"] = catalogue_id
         return cleaned_data
 
     def save(self, commit=True):
-        """Fill the catalogue id before saving the new card."""
+        """Use the lookup id when present, otherwise derive one."""
         card = super().save(commit=False)
-        card.tcgdex_id = build_tcgdex_id(card.set_name, card.number)
+        card.tcgdex_id = (
+            self.cleaned_data.get("catalogue_id")
+            or build_tcgdex_id(card.set_name, card.number)
+        )
         if commit:
             card.save()
         return card
@@ -125,7 +137,9 @@ class LogReadingForm(forms.ModelForm):
         required=False,
         label="Or a new book title",
         help_text="Used only when no book is selected above.",
-        widget=forms.TextInput(attrs={"class": "form-control"}),
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "list": "owned-titles"}
+        ),
     )
 
     class Meta:
@@ -153,6 +167,13 @@ class LogReadingForm(forms.ModelForm):
         cleaned_data["new_title"] = new_title
         return cleaned_data
 
+    def owned_book(self):
+        """Return this reader's book matching the typed title, if any."""
+        new_title = (self.cleaned_data.get("new_title") or "").strip()
+        if not new_title:
+            return None
+        return Book.objects.filter(owner=self.reader, title__iexact=new_title).first()
+
     def save(self, commit=True):
         """Create the named book first, then return the reading for it."""
         reading = super().save(commit=False)
@@ -167,3 +188,42 @@ class LogReadingForm(forms.ModelForm):
         if commit:
             reading.save()
         return reading
+
+
+class PickBookForm(forms.Form):
+    """Create a chosen book and log the reading that prompted the lookup."""
+
+    title = forms.CharField(max_length=200)
+    cover_id = forms.IntegerField(min_value=1, required=False)
+    chapters = forms.IntegerField(min_value=1, max_value=32767)
+
+    def __init__(self, *args, reader, **kwargs):
+        """Remember the reader who owns the new book."""
+        super().__init__(*args, **kwargs)
+        self.reader = reader
+
+    def clean_title(self):
+        """Reject a title that is blank after trimming."""
+        title = self.cleaned_data["title"].strip()
+        if not title:
+            raise forms.ValidationError("Enter a book title.")
+        return title
+
+    def save(self):
+        """Create or reuse the book, then create and return the reading."""
+        title = self.cleaned_data["title"]
+        book = Book.objects.filter(owner=self.reader, title__iexact=title).first()
+        if book is None:
+            book = Book.objects.create(
+                owner=self.reader,
+                title=title,
+                cover_id=self.cleaned_data.get("cover_id"),
+            )
+        elif book.cover_id is None and self.cleaned_data.get("cover_id"):
+            # Fill a missing cover without overwriting an existing one.
+            book.cover_id = self.cleaned_data["cover_id"]
+            book.save(update_fields=["cover_id"])
+        return Reading.objects.create(
+            book=book,
+            chapters=self.cleaned_data["chapters"],
+        )

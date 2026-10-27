@@ -34,8 +34,81 @@
         {% endfor %}
       </div>
       {% endfor %}
+      <p class="text-secondary small">
+        If the title is not one you already own, submitting searches Open Library
+        for a cover.
+      </p>
       <button type="submit" class="btn btn-primary">Log reading</button>
     </form>
   </div>
 </div>
+
+<datalist id="owned-titles">
+  {% for book in owned_books %}
+  <option value="{{ book.title }}"></option>
+  {% endfor %}
+</datalist>
+
+{% if lookup_title %}
+<section class="mt-4">
+  <h2 class="h4">Open Library results for "{{ lookup_title }}"</h2>
+
+  {% if lookup_error %}
+  <div class="alert alert-warning" role="alert">{{ lookup_error }}</div>
+  {% elif lookup_results %}
+  <div class="row row-cols-1 row-cols-md-2 g-3">
+    {% for result in lookup_results %}
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body d-flex gap-3">
+          {% if result.cover_url %}
+          <img src="{{ result.cover_url }}" alt="Cover of {{ result.title }}"
+               class="lookup-cover">
+          {% else %}
+          <div class="lookup-cover lookup-placeholder d-flex align-items-center
+                      justify-content-center">
+            <span>No cover</span>
+          </div>
+          {% endif %}
+          <div>
+            <h3 class="h6 mb-1">{{ result.title }}</h3>
+            <p class="small text-secondary mb-1">{{ result.author }}</p>
+            {% if result.year %}
+            <p class="small text-secondary mb-2">
+              First published {{ result.year }}
+            </p>
+            {% endif %}
+            <form method="post" action="{% url 'library:log_reading' reader.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="pick">
+              <input type="hidden" name="title" value="{{ result.title }}">
+              {% if result.cover_id %}
+              <input type="hidden" name="cover_id" value="{{ result.cover_id }}">
+              {% endif %}
+              <input type="hidden" name="chapters" value="{{ lookup_chapters }}">
+              <button type="submit" class="btn btn-sm btn-primary">
+                Use this book
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-secondary">No Open Library matches.</p>
+  {% endif %}
+
+  <form method="post" action="{% url 'library:log_reading' reader.pk %}" class="mt-3">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="pick">
+    <input type="hidden" name="title" value="{{ lookup_title }}">
+    <input type="hidden" name="chapters" value="{{ lookup_chapters }}">
+    <button type="submit" class="btn btn-outline-secondary">
+      Log "{{ lookup_title }}" without a cover
+    </button>
+  </form>
+</section>
+{% endif %}
 {% endblock %}
