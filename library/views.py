@@ -13,7 +13,8 @@ from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .forms import LogReadingForm
+from .decorators import parent_required
+from .forms import CardForm, LogReadingForm, ReaderCreationForm
 from .models import Book, Card, Purchase, Reading, annotate_chapter_balance
 
 
@@ -33,12 +34,36 @@ def _reader_balance(reader):
     ).get().balance
 
 
+def _get_active_reader(reader_id):
+    """Return an active reader, or 404 so a hidden reader leaves the site."""
+    return get_object_or_404(get_user_model(), pk=reader_id, is_active=True)
+
+
+def register(request):
+    """Create a reader account with Django's UserCreationForm."""
+    if request.method == "POST":
+        form = ReaderCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(
+                request,
+                f"Account {user.username} created. Log in to start reading.",
+            )
+            return redirect("library:login")
+    else:
+        form = ReaderCreationForm()
+    return render(request, "library/register.html", {"form": form})
+
+
 def index(request):
-    """Render each reader's balance alongside every card currently for sale."""
+    """Render each active reader's balance and every card currently for sale."""
     # The parent owns the inventory and signs in through the admin; the other
     # accounts are the readers, so staff accounts are left off the family page.
+    # Hidden readers are inactive, never deleted, and disappear from this list.
     readers = annotate_chapter_balance(
-        get_user_model().objects.filter(is_staff=False).order_by("username")
+        get_user_model()
+        .objects.filter(is_staff=False, is_active=True)
+        .order_by("username")
     )
     cards = Card.objects.filter(for_sale=True).order_by("name", "set_name")
     return render(request, "library/index.html", {"readers": readers, "cards": cards})
@@ -46,7 +71,7 @@ def index(request):
 
 def wallet(request, reader_id):
     """Render one reader's readings and purchases as a statement with one total."""
-    reader = get_object_or_404(get_user_model(), pk=reader_id)
+    reader = _get_active_reader(reader_id)
     readings = Reading.objects.filter(book__owner=reader).select_related("book")
     purchases = Purchase.objects.filter(user=reader).select_related("card")
     lines = [
@@ -78,7 +103,7 @@ def wallet(request, reader_id):
 
 def log_reading(request, reader_id):
     """Record a reading for one reader, optionally creating a new book first."""
-    reader = get_object_or_404(get_user_model(), pk=reader_id)
+    reader = _get_active_reader(reader_id)
     if request.method == "POST":
         form = LogReadingForm(request.POST, reader=reader)
         if form.is_valid():
@@ -100,7 +125,7 @@ def log_reading(request, reader_id):
 
 def reader_shop(request, reader_id):
     """Show one reader's balance and the cards on offer with buy controls."""
-    reader = get_object_or_404(get_user_model(), pk=reader_id)
+    reader = _get_active_reader(reader_id)
     cards = Card.objects.filter(for_sale=True).order_by("name", "set_name")
     return render(
         request,
@@ -112,7 +137,7 @@ def reader_shop(request, reader_id):
 @require_POST
 def buy_card(request, reader_id, card_id):
     """Sell a for-sale card to one reader, refusing an unaffordable purchase."""
-    reader = get_object_or_404(get_user_model(), pk=reader_id)
+    reader = _get_active_reader(reader_id)
     # BEGIN IMMEDIATE is configured on the database, so entering this block
     # takes SQLite's write lock before the balance is read. No other purchase
     # can commit between the check and the insert below.
@@ -148,7 +173,7 @@ def buy_card(request, reader_id, card_id):
 
 def books(request, reader_id):
     """Render one reader's books with the chapters read from each."""
-    reader = get_object_or_404(get_user_model(), pk=reader_id)
+    reader = _get_active_reader(reader_id)
     reader_books = (
         Book.objects.filter(owner=reader)
         .annotate(
@@ -173,7 +198,7 @@ def shop(request):
 
 def my_cards(request, reader_id):
     """Render the cards one reader already owns, newest purchase first."""
-    reader = get_object_or_404(get_user_model(), pk=reader_id)
+    reader = _get_active_reader(reader_id)
     purchases = (
         Purchase.objects.filter(user=reader)
         .select_related("card")
@@ -184,3 +209,42 @@ def my_cards(request, reader_id):
         "library/my_cards.html",
         {"reader": reader, "purchases": purchases},
     )
+
+
+@parent_required
+def manage_cards(request):
+    """List every card for a parent and apply remove or put-back actions."""
+    if request.method == "POST":
+        card_id = request.POST.get("card_id")
+        if not card_id:
+            messages.error(request, "No card was selected.")
+            return redirect("library:manage_cards")
+        card = get_object_or_404(Card, pk=card_id)
+        action = request.POST.get("action")
+        if action == "remove":
+            card.for_sale = False
+            card.save(update_fields=["for_sale"])
+            messages.success(request, f"{card.name} removed from sale.")
+        elif action == "restore":
+            card.for_sale = True
+            card.save(update_fields=["for_sale"])
+            messages.success(request, f"{card.name} put back on sale.")
+        else:
+            messages.error(request, "Unknown card action.")
+        return redirect("library:manage_cards")
+    cards = Card.objects.order_by("name", "set_name")
+    return render(request, "library/manage_cards.html", {"cards": cards})
+
+
+@parent_required
+def manage_card_new(request):
+    """Add a card to the inventory with the price the parent types."""
+    if request.method == "POST":
+        form = CardForm(request.POST)
+        if form.is_valid():
+            card = form.save()
+            messages.success(request, f"Added {card.name} to the inventory.")
+            return redirect("library:manage_cards")
+    else:
+        form = CardForm()
+    return render(request, "library/manage_card_new.html", {"form": form})

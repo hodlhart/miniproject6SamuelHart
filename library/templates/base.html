@@ -19,6 +19,37 @@
         <li class="nav-item">
           <a class="nav-link" href="{% url 'library:shop' %}">Cards</a>
         </li>
+        {% if user.is_staff %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'library:manage_cards' %}">Manage cards</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'library:manage_card_new' %}">Add card</a>
+        </li>
+        {% endif %}
+      </ul>
+      <ul class="navbar-nav ms-auto">
+        {% if user.is_authenticated %}
+        <li class="nav-item">
+          {% if user.is_staff %}
+          <span class="navbar-text">{{ user.username }}</span>
+          {% else %}
+          <a class="nav-link" href="{% url 'library:wallet' user.pk %}">
+            {{ user.username }}
+          </a>
+          {% endif %}
+        </li>
+        <li class="nav-item d-flex align-items-center">
+          <form method="post" action="{% url 'library:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-light btn-sm">Log out</button>
+          </form>
+        </li>
+        {% else %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'library:login' %}">Log in</a>
+        </li>
+        {% endif %}
       </ul>
     </div>
   </nav>

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Manage cards{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Manage cards</h1>
+  <a class="btn btn-primary" href="{% url 'library:manage_card_new' %}">Add a card</a>
+</div>
+
+<p class="text-secondary">
+  Removing a card takes it out of the shop. It stays in the database, so past
+  purchases still point at it.
+</p>
+
+<table class="table table-striped align-middle bg-white">
+  <thead>
+    <tr>
+      <th scope="col">Card</th>
+      <th scope="col">Set</th>
+      <th scope="col">Tier</th>
+      <th scope="col" class="text-end">Price</th>
+      <th scope="col">Status</th>
+      <th scope="col" class="text-end">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for card in cards %}
+    <tr>
+      <td>{{ card.name }}</td>
+      <td>{{ card.set_name }} #{{ card.number }}</td>
+      <td><span class="badge text-bg-secondary">{{ card.get_tier_display }}</span></td>
+      <td class="text-end">{{ card.price_chapters }}</td>
+      <td>
+        {% if card.for_sale %}
+        <span class="badge text-bg-success">For sale</span>
+        {% else %}
+        <span class="badge text-bg-secondary">Removed</span>
+        {% endif %}
+      </td>
+      <td class="text-end">
+        <form method="post" action="{% url 'library:manage_cards' %}">
+          {% csrf_token %}
+          <input type="hidden" name="card_id" value="{{ card.pk }}">
+          {% if card.for_sale %}
+          <input type="hidden" name="action" value="remove">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+          {% else %}
+          <input type="hidden" name="action" value="restore">
+          <button type="submit" class="btn btn-sm btn-outline-success">Put back</button>
+          {% endif %}
+        </form>
+      </td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="6" class="text-secondary">No cards yet.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
