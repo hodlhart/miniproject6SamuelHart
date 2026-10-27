@@ -122,6 +122,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Project-level assets (vendored Bootstrap and app.css) live in static/ at the
+# repository root, outside the app, and are served directly by runserver here.
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration

@@ -1,0 +1,20 @@
+<article class="card h-100">
+  {% if card.image_url %}
+  <img src="{{ card.image_url }}" class="card-img-top card-art p-2" alt="{{ card.name }}">
+  {% else %}
+  <div class="card-img-top card-art card-art-placeholder d-flex align-items-center
+              justify-content-center">
+    <span>No image</span>
+  </div>
+  {% endif %}
+  <div class="card-body d-flex flex-column">
+    <h3 class="h6 card-title mb-1">{{ card.name }}</h3>
+    <p class="small text-secondary mb-2">{{ card.set_name }} #{{ card.number }}</p>
+    <div class="mt-auto d-flex flex-wrap gap-2">
+      <span class="badge text-bg-secondary">{{ card.get_tier_display }}</span>
+      {% if show_price %}
+      <span class="badge text-bg-primary">{{ card.price_chapters }} chapters</span>
+      {% endif %}
+    </div>
+  </div>
+</article>

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Cards for sale{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Cards for sale</h1>
+
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3">
+  {% for card in cards %}
+  <div class="col">
+    {% include "library/_card_tile.html" with card=card show_price=1 %}
+  </div>
+  {% empty %}
+  <p class="text-secondary">No cards are for sale right now.</p>
+  {% endfor %}
+</div>
+{% endblock %}

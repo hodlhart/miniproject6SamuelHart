@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{{ reader.username }}'s cards{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ reader.username }}'s cards</h1>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-outline-secondary"
+       href="{% url 'library:wallet' reader.pk %}">Wallet</a>
+    <a class="btn btn-sm btn-outline-secondary"
+       href="{% url 'library:books' reader.pk %}">Books</a>
+  </div>
+</div>
+
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3">
+  {% for purchase in purchases %}
+  <div class="col">
+    {% include "library/_card_tile.html" with card=purchase.card %}
+    <p class="small text-secondary mt-2 mb-0">
+      Bought for {{ purchase.chapters_spent }} chapters on
+      {{ purchase.purchased_at|date:"M j, Y" }}
+    </p>
+  </div>
+  {% empty %}
+  <p class="text-secondary">No cards owned yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}{{ reader.username }}'s wallet{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ reader.username }}'s wallet</h1>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-outline-secondary"
+       href="{% url 'library:books' reader.pk %}">Books</a>
+    <a class="btn btn-sm btn-outline-secondary"
+       href="{% url 'library:my_cards' reader.pk %}">Cards owned</a>
+  </div>
+</div>
+
+<p class="text-secondary">
+  <a href="{% url 'library:index' %}">Back to all readers</a>
+</p>
+
+<table class="table table-striped align-middle bg-white">
+  <thead>
+    <tr>
+      <th scope="col">Date</th>
+      <th scope="col">Description</th>
+      <th scope="col" class="text-end">Change</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in lines %}
+    <tr>
+      <td class="text-nowrap">{{ line.when|date:"M j, Y g:i a" }}</td>
+      <td>{{ line.description }}</td>
+      <td class="text-end {% if line.change > 0 %}text-success{% else %}text-danger{% endif %}">
+        {% if line.change > 0 %}+{% endif %}{{ line.change }}
+      </td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="3" class="text-secondary">No readings or purchases yet.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="fw-bold">
+      <th scope="row" colspan="2">Total</th>
+      <td class="text-end">{{ balance }}</td>
+    </tr>
+  </tfoot>
+</table>
+{% endblock %}

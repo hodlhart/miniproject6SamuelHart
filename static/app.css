@@ -1,0 +1,13 @@
+/* Card artwork is taller than it is wide, so a fixed height keeps every tile
+   in a row aligned whether it carries an image or the placeholder. */
+.card-art {
+    height: 220px;
+    object-fit: contain;
+    background-color: #f8f9fa;
+}
+
+.card-art-placeholder {
+    border-bottom: 1px dashed #adb5bd;
+    color: #6c757d;
+    font-size: 0.875rem;
+}

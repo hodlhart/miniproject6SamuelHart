@@ -1,3 +1,3 @@
-from django.test import TestCase
-
-# Create your tests here.
+# INF601 - Advanced Programming in Python
+# Samuel Hart
+# Mini Project 6
