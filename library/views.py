@@ -2,17 +2,21 @@
 # Samuel Hart
 # Mini Project 6
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.db.models import IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_safe
 
+from .artcache import cache_remote_art, cached_art_url
 from .decorators import parent_required
 from .forms import CardForm, LogReadingForm, PickBookForm, ReaderCreationForm
 from .lookups import (
@@ -23,6 +27,16 @@ from .lookups import (
     search_tcgdex,
 )
 from .models import Book, Card, Purchase, Reading, annotate_chapter_balance
+
+ART_NAME_RE = re.compile(r"^[0-9a-f]{64}\.(?:jpg|jpeg|png|webp|gif|img)$")
+ART_CONTENT_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".img": "application/octet-stream",
+}
 
 
 @dataclass(frozen=True)
@@ -147,6 +161,11 @@ def log_reading(request, reader_id):
                             "Open Library could not be reached. "
                             "You can still log the book without a cover."
                         )
+                    for result in lookup_results or []:
+                        cache_remote_art(result["cover_url"])
+                        result["cached_cover_url"] = cached_art_url(
+                            result["cover_url"]
+                        )
                 else:
                     reading = form.save()
                     messages.success(request, _reading_message(reading))
@@ -242,6 +261,21 @@ def shop(request):
     return render(request, "library/shop.html", {"cards": cards})
 
 
+@require_safe
+def serve_art(request, name):
+    """Serve one cached artwork file with a long-lived cache header."""
+    if not ART_NAME_RE.fullmatch(name):
+        raise Http404
+    path = settings.ART_CACHE_ROOT / name
+    if not path.is_file():
+        raise Http404
+    suffix = "." + name.rsplit(".", 1)[-1]
+    content_type = ART_CONTENT_TYPES.get(suffix, "application/octet-stream")
+    response = FileResponse(path.open("rb"), content_type=content_type)
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
 def my_cards(request, reader_id):
     """Render the cards one reader already owns, newest purchase first."""
     reader = _get_active_reader(reader_id)
@@ -300,6 +334,8 @@ def manage_card_new(request):
             except IntegrityError:
                 messages.error(request, "This card is already in the inventory.")
             else:
+                if card.image_url:
+                    cache_remote_art(card.image_url)
                 messages.success(request, f"Added {card.name} to the inventory.")
                 return redirect("library:manage_cards")
     else:
@@ -319,6 +355,9 @@ def manage_card_new(request):
                 results = search_tcgdex(query)
             except LookupUnavailable:
                 lookup_error = "TCGdex could not be reached. Try again."
+            for result in results:
+                cache_remote_art(result["image_url"])
+                result["cached_image_url"] = cached_art_url(result["image_url"])
 
     return render(
         request,

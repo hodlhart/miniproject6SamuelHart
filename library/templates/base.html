@@ -8,7 +8,14 @@
   <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'app.css' %}">
 </head>
-<body class="bg-body-tertiary">
+<body>
+  {% if wallpaper_tiles %}
+  <div class="wallpaper" aria-hidden="true">
+    {% for tile in wallpaper_tiles %}
+    <img src="{{ tile }}" alt="">
+    {% endfor %}
+  </div>
+  {% endif %}
   <nav class="navbar navbar-expand navbar-dark bg-dark">
     <div class="container">
       <a class="navbar-brand" href="{% url 'library:index' %}">Pages for Pokemon</a>

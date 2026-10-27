@@ -27,3 +27,43 @@
     font-size: 0.75rem;
     text-align: center;
 }
+
+/* The wallpaper sits behind the page on a flat cream body. */
+body {
+    background-color: #f7f1e3;
+}
+
+.wallpaper {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 1fr;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    overflow: hidden;
+}
+
+/* A cream wash keeps the decoration low contrast. */
+.wallpaper::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(247, 241, 227, 0.72);
+}
+
+.wallpaper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.35;
+    border-radius: 0.5rem;
+}
+
+.navbar,
+main {
+    position: relative;
+    z-index: 1;
+}

@@ -1,6 +1,7 @@
 <article class="card h-100">
-  {% if card.image_url %}
-  <img src="{{ card.image_url }}" class="card-img-top card-art p-2" alt="{{ card.name }}">
+  {% if card.cached_image_url %}
+  <img src="{{ card.cached_image_url }}" class="card-img-top card-art p-2"
+       alt="{{ card.name }}">
   {% else %}
   <div class="card-img-top card-art card-art-placeholder d-flex align-items-center
               justify-content-center">

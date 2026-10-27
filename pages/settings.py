@@ -69,6 +69,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'library.context_processors.wallpaper',
             ],
         },
     },
@@ -141,6 +142,11 @@ STATIC_URL = 'static/'
 # Project-level assets (vendored Bootstrap and app.css) live in static/ at the
 # repository root, outside the app, and are served directly by runserver here.
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Runtime artwork cache. It lives under media/, which is already gitignored,
+# so nothing written here can be committed. The app serves it with a long
+# Cache-Control header because a cached file never changes once written.
+ART_CACHE_ROOT = BASE_DIR / "media" / "art-cache"
 
 
 # Email

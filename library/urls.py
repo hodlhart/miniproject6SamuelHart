@@ -27,6 +27,7 @@ urlpatterns = [
     path("readers/<int:reader_id>/shop/", views.reader_shop, name="reader_shop"),
     path("readers/<int:reader_id>/books/", views.books, name="books"),
     path("cards/", views.shop, name="shop"),
+    path("art/<str:name>", views.serve_art, name="art"),
     path("readers/<int:reader_id>/cards/", views.my_cards, name="my_cards"),
     path(
         "readers/<int:reader_id>/cards/buy/<int:card_id>/",

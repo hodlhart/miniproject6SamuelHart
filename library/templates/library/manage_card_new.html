@@ -45,8 +45,8 @@
     <div class="col">
       <div class="card h-100">
         <div class="card-body d-flex gap-3">
-          {% if result.image_url %}
-          <img src="{{ result.image_url }}" alt="{{ result.name }}"
+          {% if result.cached_image_url %}
+          <img src="{{ result.cached_image_url }}" alt="{{ result.name }}"
                class="lookup-cover">
           {% else %}
           <div class="lookup-cover lookup-placeholder d-flex align-items-center

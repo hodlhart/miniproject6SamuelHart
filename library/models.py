@@ -7,6 +7,7 @@ from django.db import models
 from django.db.models import F, IntegerField, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, Lower
 
+from .artcache import cached_art_url
 from .lookups import build_cover_url
 
 
@@ -39,6 +40,11 @@ class Book(models.Model):
     def cover_url(self):
         """Return the Open Library cover address for this book, or None."""
         return build_cover_url(self.cover_id)
+
+    @property
+    def cached_cover_url(self):
+        """Return the local URL for this book's cached cover, or None."""
+        return cached_art_url(self.cover_url)
 
     def __str__(self):
         """Return the title with its reader, so admin rows are distinguishable."""
@@ -96,6 +102,11 @@ class Card(models.Model):
     # Nullable unique columns accept unlimited nulls, so the catalogue id is
     # declared non-null as well as unique.
     tcgdex_id = models.CharField(max_length=100, unique=True)
+
+    @property
+    def cached_image_url(self):
+        """Return the local URL for this card's cached artwork, or None."""
+        return cached_art_url(self.image_url)
 
     def __str__(self):
         """Return the card name and set, which identify it to the family."""
