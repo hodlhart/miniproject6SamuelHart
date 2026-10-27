@@ -16,6 +16,8 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 
+from django.contrib.messages import constants as message_constants
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -74,6 +76,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'pages.wsgi.application'
 
+# Bootstrap names its error alert "danger", not "error".
+MESSAGE_TAGS = {message_constants.ERROR: "danger"}
+
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
@@ -82,6 +87,11 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # SQLite has only a database-wide write lock, so BEGIN IMMEDIATE takes
+        # it before a balance is read. That keeps the balance check and the
+        # purchase insert in one serialized unit instead of two interleaved
+        # reads followed by competing writes.
+        'OPTIONS': {'transaction_mode': 'IMMEDIATE'},
     }
 }
 

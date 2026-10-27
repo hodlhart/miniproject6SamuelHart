@@ -16,5 +16,11 @@
       <span class="badge text-bg-primary">{{ card.price_chapters }} chapters</span>
       {% endif %}
     </div>
+    {% if show_buy %}
+    <button type="button" class="btn btn-primary w-100 mt-3"
+            data-bs-toggle="modal" data-bs-target="#buyModal-{{ card.pk }}">
+      Buy
+    </button>
+    {% endif %}
   </div>
 </article>

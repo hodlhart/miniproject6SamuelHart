@@ -5,11 +5,15 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
+from .forms import LogReadingForm
 from .models import Book, Card, Purchase, Reading, annotate_chapter_balance
 
 
@@ -20,6 +24,13 @@ class StatementLine:
     when: datetime
     description: str
     change: int
+
+
+def _reader_balance(reader):
+    """Return one reader's derived chapter balance."""
+    return annotate_chapter_balance(
+        get_user_model().objects.filter(pk=reader.pk)
+    ).get().balance
 
 
 def index(request):
@@ -57,14 +68,82 @@ def wallet(request, reader_id):
     lines.sort(key=lambda line: line.when, reverse=True)
     # The footer total is the annotated balance, the same figure the home page
     # shows, rather than a second sum that could drift from it.
-    balance = annotate_chapter_balance(
-        get_user_model().objects.filter(pk=reader.pk)
-    ).get().balance
+    balance = _reader_balance(reader)
     return render(
         request,
         "library/wallet.html",
         {"reader": reader, "lines": lines, "balance": balance},
     )
+
+
+def log_reading(request, reader_id):
+    """Record a reading for one reader, optionally creating a new book first."""
+    reader = get_object_or_404(get_user_model(), pk=reader_id)
+    if request.method == "POST":
+        form = LogReadingForm(request.POST, reader=reader)
+        if form.is_valid():
+            reading = form.save()
+            unit = "chapter" if reading.chapters == 1 else "chapters"
+            messages.success(
+                request,
+                f"Logged {reading.chapters} {unit} of {reading.book.title}.",
+            )
+            return redirect("library:wallet", reader_id=reader.pk)
+    else:
+        form = LogReadingForm(reader=reader)
+    return render(
+        request,
+        "library/log_reading.html",
+        {"reader": reader, "form": form},
+    )
+
+
+def reader_shop(request, reader_id):
+    """Show one reader's balance and the cards on offer with buy controls."""
+    reader = get_object_or_404(get_user_model(), pk=reader_id)
+    cards = Card.objects.filter(for_sale=True).order_by("name", "set_name")
+    return render(
+        request,
+        "library/reader_shop.html",
+        {"reader": reader, "balance": _reader_balance(reader), "cards": cards},
+    )
+
+
+@require_POST
+def buy_card(request, reader_id, card_id):
+    """Sell a for-sale card to one reader, refusing an unaffordable purchase."""
+    reader = get_object_or_404(get_user_model(), pk=reader_id)
+    # BEGIN IMMEDIATE is configured on the database, so entering this block
+    # takes SQLite's write lock before the balance is read. No other purchase
+    # can commit between the check and the insert below.
+    with transaction.atomic():
+        card = get_object_or_404(Card, pk=card_id)
+        if Purchase.objects.filter(card=card).exists():
+            messages.error(request, f"{card.name} has already been bought.")
+            return redirect("library:reader_shop", reader_id=reader.pk)
+        if not card.for_sale:
+            messages.error(request, f"{card.name} is not for sale.")
+            return redirect("library:reader_shop", reader_id=reader.pk)
+        balance = _reader_balance(reader)
+        if balance < card.price_chapters:
+            messages.error(
+                request,
+                f"{reader.username} cannot afford {card.name}: it costs "
+                f"{card.price_chapters} chapters and the balance is {balance}.",
+            )
+            return redirect("library:reader_shop", reader_id=reader.pk)
+        Purchase.objects.create(
+            user=reader,
+            card=card,
+            chapters_spent=card.price_chapters,
+        )
+        card.for_sale = False
+        card.save(update_fields=["for_sale"])
+    messages.success(
+        request,
+        f"Bought {card.name} for {card.price_chapters} chapters.",
+    )
+    return redirect("library:my_cards", reader_id=reader.pk)
 
 
 def books(request, reader_id):

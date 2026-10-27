@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Card shop for {{ reader.username }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Card shop for {{ reader.username }}</h1>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-primary"
+       href="{% url 'library:log_reading' reader.pk %}">Log reading</a>
+    <a class="btn btn-sm btn-outline-secondary"
+       href="{% url 'library:wallet' reader.pk %}">Wallet</a>
+  </div>
+</div>
+
+<p class="lead">
+  Balance: <strong>{{ balance }} chapters</strong>
+</p>
+
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3">
+  {% for card in cards %}
+  <div class="col">
+    {% include "library/_card_tile.html" with card=card show_price=1 show_buy=1 %}
+  </div>
+  {% empty %}
+  <p class="text-secondary">No cards are for sale right now.</p>
+  {% endfor %}
+</div>
+
+{% for card in cards %}
+{% include "library/_buy_modal.html" with card=card %}
+{% endfor %}
+{% endblock %}
