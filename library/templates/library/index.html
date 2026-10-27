@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Pages for Pokemon{% endblock %}
+
+{% block content %}
+<h1>Pages for Pokemon</h1>
+
+<section>
+  <h2>Readers</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Reader</th>
+        <th scope="col">Chapters read</th>
+        <th scope="col">Chapters spent</th>
+        <th scope="col">Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for reader in readers %}
+      <tr>
+        <td>{{ reader.username }}</td>
+        <td>{{ reader.chapters_read }}</td>
+        <td>{{ reader.chapters_spent }}</td>
+        <td>{{ reader.balance }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="muted">No readers yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Cards for sale</h2>
+  <div class="cards">
+    {% for card in cards %}
+    <article class="card">
+      {% if card.image_url %}
+      <img src="{{ card.image_url }}" alt="{{ card.name }}" loading="lazy">
+      {% endif %}
+      <h3>{{ card.name }}</h3>
+      <p class="muted">
+        {{ card.set_name }} #{{ card.number }}, {{ card.rarity }},
+        {{ card.get_tier_display }}
+      </p>
+      <p class="price">{{ card.price_chapters }} chapters</p>
+    </article>
+    {% empty %}
+    <p class="muted">No cards are for sale right now.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
