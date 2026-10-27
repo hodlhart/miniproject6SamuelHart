@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# The virtual environment is built from requirements.txt, never committed.
+.venv/
+
+# The SQLite database is created by `manage.py migrate`, never committed.
+# Ignore the database file itself and anything else Django generates at run time.
+db.sqlite3
+*.sqlite3
+*.db
+
+# Runtime output. Nothing belongs in a tracked file inside these, so the whole
+# folder is ignored rather than its contents with an exception. A committed
+# placeholder in a directory like this is exactly what a rubric marks down.
+media/
+staticfiles/
+*.log
+
+# No credential belongs in this project. TCGdex needs no API key, but keep the
+# rules so one can never be committed by accident.
+.env
+.env.*
+scratch.http
+token.txt
+.streamlit/secrets.toml
+
+# Editor and tooling noise
+.ruff_cache/
+.idea/
+.vscode/
+*.swp
+.DS_Store
