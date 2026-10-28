@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block title %}Not your page{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Not your page</h1>
+<p>{{ exception|default:"You do not have access to this page." }}</p>
+<p><a href="{% url 'library:index' %}">Back to the family page</a></p>
+{% endblock %}

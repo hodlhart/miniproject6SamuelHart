@@ -3,7 +3,31 @@
 {% block title %}Pages for Pokemon{% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-3">Readers</h1>
+{% if not request.user.is_authenticated %}
+<h1 class="h3 mb-3">Who is reading?</h1>
+<p class="text-secondary">Tap your name, then tap your three energy cards.</p>
+
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3">
+  {% for reader in readers %}
+  <div class="col">
+    <a class="btn btn-outline-primary btn-lg w-100"
+       href="{% url 'library:login' %}?username={{ reader.username|urlencode }}&amp;next={% url 'library:wallet' reader.pk %}">
+      {{ reader.username }}
+    </a>
+  </div>
+  {% empty %}
+  <p class="text-secondary">No readers yet.</p>
+  {% endfor %}
+</div>
+
+<p class="text-secondary mt-3">
+  Parent? <a href="{% url 'library:login' %}">Log in with your password</a>.
+</p>
+
+{% else %}
+<h1 class="h3 mb-3">
+  {% if request.user.is_staff %}Family{% else %}Your page{% endif %}
+</h1>
 
 <div class="row g-3 mb-5">
   {% for reader in readers %}
@@ -23,15 +47,18 @@
              href="{% url 'library:books' reader.pk %}">Books</a>
           <a class="btn btn-sm btn-outline-secondary"
              href="{% url 'library:my_cards' reader.pk %}">Cards owned</a>
+          <a class="btn btn-sm btn-outline-secondary"
+             href="{% url 'library:reader_shop' reader.pk %}">Shop</a>
         </div>
       </div>
     </div>
   </div>
   {% empty %}
-  <p class="text-secondary">No readers yet.</p>
+  <p class="text-secondary">No reader page for this account.</p>
   {% endfor %}
 </div>
 
+{% if cards %}
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
   <h2 class="h4 mb-0">Cards for sale</h2>
   <a class="btn btn-sm btn-outline-primary" href="{% url 'library:shop' %}">See all</a>
@@ -46,4 +73,6 @@
   <p class="text-secondary">No cards are for sale right now.</p>
   {% endfor %}
 </div>
+{% endif %}
+{% endif %}
 {% endblock %}

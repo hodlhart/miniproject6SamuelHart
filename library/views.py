@@ -19,7 +19,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST, require_safe
 
 from .artcache import cache_remote_art, cached_art_url
-from .decorators import parent_required
+from .decorators import family_required, parent_required, reader_required
 from .energy import build_energy_grid, build_registration_grid
 from .forms import (
     CardForm,
@@ -108,15 +108,64 @@ def _safe_next(request, next_url):
     return settings.LOGIN_REDIRECT_URL
 
 
+def _login_context(next_url):
+    """Return the default identify stage of the login page."""
+    return {
+        "stage": "identify",
+        "identify_form": UsernameForm(),
+        "energy_form": None,
+        "energy_tiles": None,
+        "password_form": None,
+        "username": "",
+        "next": next_url,
+    }
+
+
+def _identified_login_context(request, username, next_url):
+    """Return the password or energy stage for an identified username."""
+    context = _login_context(next_url)
+    user = get_user_model().objects.filter(
+        username=username, is_active=True
+    ).first()
+    if user is None:
+        messages.error(request, "No active account with that name.")
+        return context
+    if user.is_staff:
+        context.update({
+            "stage": "password",
+            "password_form": LoginForm(request, initial={"username": username}),
+            "username": username,
+        })
+        return context
+    profile = Profile.objects.filter(user=user).first()
+    if profile is None:
+        messages.error(
+            request,
+            "This reader has no energy order yet. Ask a parent to set one.",
+        )
+        return context
+    if profile.failed_attempts >= MAX_ENERGY_FAILURES:
+        messages.error(
+            request,
+            "Too many tries. Ask a parent to reset your energy order.",
+        )
+        return context
+    context.update({
+        "stage": "energy",
+        "energy_form": EnergySequenceForm(),
+        "energy_tiles": build_energy_grid([
+            profile.first_type,
+            profile.second_type,
+            profile.third_type,
+        ]),
+        "username": username,
+    })
+    return context
+
+
 def login_view(request):
     """Log in a parent with a password or a reader with three energy types."""
     next_url = request.POST.get("next") or request.GET.get("next", "")
-    stage = "identify"
-    identify_form = UsernameForm()
-    energy_form = None
-    energy_tiles = None
-    password_form = None
-    username = ""
 
     if request.method == "POST":
         action = request.POST.get("action", "")
@@ -125,126 +174,119 @@ def login_view(request):
         if action == "identify":
             identify_form = UsernameForm(request.POST)
             if identify_form.is_valid():
-                user = get_user_model().objects.filter(
-                    username=username, is_active=True
-                ).first()
-                if user is None:
-                    messages.error(request, "No active account with that name.")
-                elif user.is_staff:
-                    stage = "password"
-                    password_form = LoginForm(
-                        request, initial={"username": username}
-                    )
-                else:
-                    profile = Profile.objects.filter(user=user).first()
-                    if profile is None:
-                        messages.error(
-                            request,
-                            "This reader has no energy order yet. "
-                            "Ask a parent to set one.",
-                        )
-                    elif profile.failed_attempts >= MAX_ENERGY_FAILURES:
-                        messages.error(
-                            request,
-                            "Too many tries. Ask a parent to reset your energy order.",
-                        )
-                    else:
-                        stage = "energy"
-                        energy_form = EnergySequenceForm()
-                        energy_tiles = build_energy_grid(
-                            [
-                                profile.first_type,
-                                profile.second_type,
-                                profile.third_type,
-                            ]
-                        )
-        elif action == "password":
-            stage = "password"
+                context = _identified_login_context(request, username, next_url)
+                if context["stage"] == "identify":
+                    context["identify_form"] = identify_form
+                return render(request, "library/login.html", context)
+            context = _login_context(next_url)
+            context["identify_form"] = identify_form
+            return render(request, "library/login.html", context)
+
+        if action == "password":
+            context = _login_context(next_url)
+            context["stage"] = "password"
+            context["username"] = username
             password_form = LoginForm(request, data=request.POST)
+            context["password_form"] = password_form
             if password_form.is_valid():
                 login(request, password_form.get_user())
                 return redirect(_safe_next(request, next_url))
             messages.error(request, "That username and password did not match.")
-        elif action == "energy":
+            return render(request, "library/login.html", context)
+
+        if action == "energy":
             user = get_user_model().objects.filter(
                 username=username, is_active=True
             ).first()
             profile = Profile.objects.filter(user=user).first() if user else None
             if user is None or profile is None:
                 messages.error(request, "That reader could not be found.")
-            elif profile.failed_attempts >= MAX_ENERGY_FAILURES:
+                return render(
+                    request, "library/login.html", _login_context(next_url)
+                )
+            if profile.failed_attempts >= MAX_ENERGY_FAILURES:
                 messages.error(
                     request,
                     "Too many tries. Ask a parent to reset your energy order.",
                 )
-            else:
-                energy_form = EnergySequenceForm(request.POST)
-                if energy_form.is_valid():
-                    payload = ":".join([
-                        energy_form.cleaned_data["first_type"],
-                        energy_form.cleaned_data["second_type"],
-                        energy_form.cleaned_data["third_type"],
-                    ])
-                    if check_password(payload, profile.energy_hash):
-                        profile.failed_attempts = 0
-                        profile.save(update_fields=["failed_attempts"])
-                        login(
-                            request,
-                            user,
-                            backend="django.contrib.auth.backends.ModelBackend",
-                        )
-                        return redirect(_safe_next(request, next_url))
-                    profile.failed_attempts += 1
+                return render(
+                    request, "library/login.html", _login_context(next_url)
+                )
+            energy_form = EnergySequenceForm(request.POST)
+            if energy_form.is_valid():
+                payload = ":".join([
+                    energy_form.cleaned_data["first_type"],
+                    energy_form.cleaned_data["second_type"],
+                    energy_form.cleaned_data["third_type"],
+                ])
+                if check_password(payload, profile.energy_hash):
+                    profile.failed_attempts = 0
                     profile.save(update_fields=["failed_attempts"])
-                    messages.error(request, "That order did not match. Try again.")
-                else:
-                    messages.error(request, "Choose three different energy types.")
-                if profile.failed_attempts >= MAX_ENERGY_FAILURES:
-                    stage = "identify"
-                    messages.error(
+                    login(
                         request,
-                        "Too many tries. Ask a parent to reset your energy order.",
+                        user,
+                        backend="django.contrib.auth.backends.ModelBackend",
                     )
-                else:
-                    stage = "energy"
-                    energy_form = EnergySequenceForm()
-                    energy_tiles = build_energy_grid(
-                        [
-                            profile.first_type,
-                            profile.second_type,
-                            profile.third_type,
-                        ]
-                    )
+                    return redirect(_safe_next(request, next_url))
+                profile.failed_attempts += 1
+                profile.save(update_fields=["failed_attempts"])
+                messages.error(request, "That order did not match. Try again.")
+            else:
+                messages.error(request, "Choose three different energy types.")
+            if profile.failed_attempts >= MAX_ENERGY_FAILURES:
+                messages.error(
+                    request,
+                    "Too many tries. Ask a parent to reset your energy order.",
+                )
+                return render(
+                    request, "library/login.html", _login_context(next_url)
+                )
+            return render(
+                request,
+                "library/login.html",
+                _identified_login_context(request, username, next_url),
+            )
 
-    return render(
-        request,
-        "library/login.html",
-        {
-            "stage": stage,
-            "identify_form": identify_form,
-            "energy_form": energy_form,
-            "energy_tiles": energy_tiles,
-            "password_form": password_form,
-            "username": username,
-            "next": next_url,
-        },
-    )
+    username = (request.GET.get("username") or "").strip()
+    if username:
+        return render(
+            request,
+            "library/login.html",
+            _identified_login_context(request, username, next_url),
+        )
+    return render(request, "library/login.html", _login_context(next_url))
 
 
 def index(request):
-    """Render each active reader's balance and every card currently for sale."""
-    # The parent owns the inventory and signs in through the admin; the other
-    # accounts are the readers, so staff accounts are left off the family page.
-    # Hidden readers are inactive, never deleted, and disappear from this list.
-    readers = annotate_chapter_balance(
-        get_user_model()
-        .objects.filter(is_staff=False, is_active=True)
-        .order_by("username")
+    """Show the family, a reader's own page, or the names that lead to sign-in."""
+    user = request.user
+    if user.is_authenticated and user.is_staff:
+        readers = annotate_chapter_balance(
+            get_user_model()
+            .objects.filter(is_staff=False, is_active=True)
+            .order_by("username")
+        )
+        cards = Card.objects.filter(for_sale=True).order_by("name", "set_name")
+    elif user.is_authenticated:
+        readers = annotate_chapter_balance(
+            get_user_model().objects.filter(
+                pk=user.pk, is_staff=False, is_active=True
+            )
+        )
+        cards = Card.objects.filter(for_sale=True).order_by("name", "set_name")
+    else:
+        readers = get_user_model().objects.filter(
+            is_staff=False, is_active=True
+        ).order_by("username")
+        cards = Card.objects.none()
+    return render(
+        request,
+        "library/index.html",
+        {"readers": readers, "cards": cards},
     )
-    cards = Card.objects.filter(for_sale=True).order_by("name", "set_name")
-    return render(request, "library/index.html", {"readers": readers, "cards": cards})
 
 
+@reader_required
 def wallet(request, reader_id):
     """Render one reader's readings and purchases as a statement with one total."""
     reader = _get_active_reader(reader_id)
@@ -277,6 +319,7 @@ def wallet(request, reader_id):
     )
 
 
+@reader_required
 def log_reading(request, reader_id):
     """Record a reading, offering Open Library matches for a new title."""
     reader = _get_active_reader(reader_id)
@@ -337,6 +380,7 @@ def log_reading(request, reader_id):
     )
 
 
+@reader_required
 def reader_shop(request, reader_id):
     """Show one reader's balance and the cards on offer with buy controls."""
     reader = _get_active_reader(reader_id)
@@ -348,6 +392,7 @@ def reader_shop(request, reader_id):
     )
 
 
+@reader_required
 @require_POST
 def buy_card(request, reader_id, card_id):
     """Sell a for-sale card to one reader, refusing an unaffordable purchase."""
@@ -385,6 +430,7 @@ def buy_card(request, reader_id, card_id):
     return redirect("library:my_cards", reader_id=reader.pk)
 
 
+@reader_required
 def books(request, reader_id):
     """Render one reader's books with the chapters read from each."""
     reader = _get_active_reader(reader_id)
@@ -404,6 +450,7 @@ def books(request, reader_id):
     )
 
 
+@family_required
 def shop(request):
     """Render every card currently for sale."""
     cards = Card.objects.filter(for_sale=True).order_by("name", "set_name")
@@ -425,6 +472,7 @@ def serve_art(request, name):
     return response
 
 
+@reader_required
 def my_cards(request, reader_id):
     """Render the cards one reader already owns, newest purchase first."""
     reader = _get_active_reader(reader_id)
