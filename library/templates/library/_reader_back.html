@@ -1,0 +1,5 @@
+<p class="text-secondary mb-3">
+  <a href="{% url 'library:index' %}">
+    {% if request.user.is_staff %}Back to all readers{% else %}Back to your page{% endif %}
+  </a>
+</p>

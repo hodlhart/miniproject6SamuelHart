@@ -19,6 +19,7 @@ urlpatterns = [
     path("readers/<int:reader_id>/shop/", views.reader_shop, name="reader_shop"),
     path("readers/<int:reader_id>/books/", views.books, name="books"),
     path("cards/", views.shop, name="shop"),
+    path("progress/", views.family_progress, name="progress"),
     path("art/<str:name>", views.serve_art, name="art"),
     path("readers/<int:reader_id>/cards/", views.my_cards, name="my_cards"),
     path(
@@ -33,5 +34,20 @@ urlpatterns = [
         "manage/readers/<int:reader_id>/reset/",
         views.reset_energy,
         name="reset_energy",
+    ),
+    path(
+        "manage/readers/<int:reader_id>/avatar/search/",
+        views.manage_reader_avatar_search,
+        name="manage_reader_avatar_search",
+    ),
+    path(
+        "manage/readers/<int:reader_id>/avatar/pick/",
+        views.manage_reader_avatar_pick,
+        name="manage_reader_avatar_pick",
+    ),
+    path(
+        "manage/readers/<int:reader_id>/avatar/clear/",
+        views.manage_reader_avatar_clear,
+        name="manage_reader_avatar_clear",
     ),
 ]

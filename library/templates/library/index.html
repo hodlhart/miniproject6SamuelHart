@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load avatar_tags %}
 
 {% block title %}Pages for Pokemon{% endblock %}
 
@@ -10,9 +11,10 @@
 <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3">
   {% for reader in readers %}
   <div class="col">
-    <a class="btn btn-outline-primary btn-lg w-100"
+    <a class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center gap-2"
        href="{% url 'library:login' %}?username={{ reader.username|urlencode }}">
-      {{ reader.username }}
+      {% reader_avatar reader %}
+      <span>{{ reader.username }}</span>
     </a>
   </div>
   {% empty %}
@@ -30,20 +32,64 @@
   {% if request.user.is_staff %}Family{% else %}Your page{% endif %}
 </h1>
 
+{% if own_reader %}
+<a class="btn btn-primary btn-lg w-100 log-reading-button mb-4"
+   href="{% url 'library:log_reading' own_reader.pk %}">Log reading</a>
+{% endif %}
+
 <div class="row g-3 mb-5">
   {% for reader in readers %}
   <div class="col-md-6 col-xl-4">
     <div class="card h-100">
       <div class="card-body">
-        <h2 class="h5 card-title">{{ reader.username }}</h2>
-        <p class="display-6 mb-1">{{ reader.balance }}</p>
+        <div class="d-flex align-items-center gap-3 mb-2">
+          {% reader_avatar reader %}
+          <div>
+            <h2 class="h5 card-title mb-1">{{ reader.username }}</h2>
+            <p class="display-6 mb-0">{{ reader.balance }}</p>
+          </div>
+        </div>
         <p class="text-secondary">
           {{ reader.chapters_read }} chapters read, {{ reader.chapters_spent }} spent
         </p>
+        {% if own_reader and reader.pk == own_reader.pk %}
+        <h3 class="h6 mt-4">Recent activity</h3>
+        {% if recent_lines %}
+        <table class="table table-sm align-middle mb-2">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Description</th>
+              <th scope="col" class="text-end">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for line in recent_lines %}
+            <tr>
+              <td class="text-nowrap">{{ line.when|date:"M j, Y g:i a" }}</td>
+              <td>{{ line.description }}</td>
+              <td class="text-end
+                         {% if line.change > 0 %}text-success{% else %}text-danger{% endif %}">
+                {% if line.change > 0 %}+{% endif %}{{ line.change }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-secondary">
+          Nothing logged yet. Log your first reading above.
+        </p>
+        {% endif %}
+        <a class="btn btn-sm btn-outline-primary mb-3"
+           href="{% url 'library:wallet' reader.pk %}">View full wallet</a>
+        {% endif %}
         <div class="d-flex flex-wrap gap-2">
+          {% if not own_reader or reader.pk != own_reader.pk %}
           <a class="btn btn-sm btn-primary" href="{% url 'library:wallet' reader.pk %}">
             Wallet
           </a>
+          {% endif %}
           <a class="btn btn-sm btn-outline-secondary"
              href="{% url 'library:books' reader.pk %}">Books</a>
           <a class="btn btn-sm btn-outline-secondary"

@@ -1,4 +1,4 @@
-{% load static %}
+{% load static avatar_tags %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -26,6 +26,11 @@
         <li class="nav-item">
           <a class="nav-link" href="{% url 'library:shop' %}">Cards</a>
         </li>
+        {% if user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'library:progress' %}">Progress</a>
+        </li>
+        {% endif %}
         {% if user.is_staff %}
         <li class="nav-item">
           <a class="nav-link" href="{% url 'library:manage_cards' %}">Manage cards</a>
@@ -44,8 +49,10 @@
           {% if user.is_staff %}
           <span class="navbar-text">{{ user.username }}</span>
           {% else %}
-          <a class="nav-link" href="{% url 'library:wallet' user.pk %}">
-            {{ user.username }}
+          <a class="nav-link d-flex align-items-center gap-2"
+             href="{% url 'library:wallet' user.pk %}">
+            {% reader_avatar user %}
+            <span>{{ user.username }}</span>
           </a>
           {% endif %}
         </li>

@@ -19,8 +19,9 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST, require_safe
 
 from .artcache import cache_remote_art, cached_art_url
+from .avatars import STARTER_POKEMON, search_avatar_candidates
 from .decorators import family_required, parent_required, reader_required
-from .energy import build_energy_grid, build_registration_grid
+from .energy import ENERGY_TYPE_LABELS, build_energy_grid, build_registration_grid
 from .forms import (
     CardForm,
     EnergyRegistrationForm,
@@ -39,6 +40,7 @@ from .lookups import (
     search_tcgdex,
 )
 from .models import Book, Card, Profile, Purchase, Reading, annotate_chapter_balance
+from .progress import build_family_progress
 
 ART_NAME_RE = re.compile(r"^[0-9a-f]{64}\.(?:jpg|jpeg|png|webp|gif|img)$")
 ART_CONTENT_TYPES = {
@@ -79,23 +81,136 @@ def _reading_message(reading):
     return f"Logged {reading.chapters} {unit} of {reading.book.title}."
 
 
+def _statement_lines(reader):
+    """Return a reader's readings and purchases as newest-first lines."""
+    readings = Reading.objects.filter(book__owner=reader).select_related("book")
+    purchases = Purchase.objects.filter(user=reader).select_related("card")
+    lines = [
+        StatementLine(
+            when=reading.logged_at,
+            description=f"Read {reading.chapters} chapters of {reading.book.title}",
+            change=reading.chapters,
+        )
+        for reading in readings
+    ]
+    lines.extend(
+        StatementLine(
+            when=purchase.purchased_at,
+            description=f"Bought {purchase.card.name}",
+            change=-purchase.chapters_spent,
+        )
+        for purchase in purchases
+    )
+    lines.sort(key=lambda line: line.when, reverse=True)
+    return lines
+
+
+REGISTRATION_KEYS = (
+    "registration_username",
+    "registration_energy",
+    "registration_candidates",
+    "registration_query",
+    "registration_avatar",
+)
+
+
+def _remember_registration_state(request):
+    """Keep the typed name and energy order across picture searches."""
+    request.session["registration_username"] = (
+        request.POST.get("username") or ""
+    ).strip()
+    energy = [
+        request.POST.get("first_type", ""),
+        request.POST.get("second_type", ""),
+        request.POST.get("third_type", ""),
+    ]
+    if all(energy):
+        request.session["registration_energy"] = energy
+
+
 def register(request):
-    """Create a reader account with a three-energy login order."""
+    """Create a reader account with an energy order and an optional picture."""
     if request.method == "POST":
+        action = request.POST.get("action", "")
+        query = (request.POST.get("query") or "").strip()
+        chosen = (request.POST.get("avatar_url") or "").strip()
+
+        if action != "create" and chosen:
+            candidates = request.session.get("registration_candidates", [])
+            if any(item["remote_url"] == chosen for item in candidates):
+                request.session["registration_avatar"] = chosen
+                request.session["registration_candidates"] = []
+                messages.success(request, "Picture chosen.")
+            else:
+                messages.error(request, "That picture is no longer available.")
+            _remember_registration_state(request)
+            return redirect("library:register")
+
+        if action != "create" and (action == "search" or query):
+            if not query:
+                messages.error(request, "Type a Pokemon name or tap a starter.")
+            else:
+                try:
+                    candidates = search_avatar_candidates(query)
+                except LookupUnavailable:
+                    candidates = []
+                    messages.error(request, "TCGdex could not be reached. Try again.")
+                request.session["registration_candidates"] = candidates
+                request.session["registration_query"] = query
+                if not candidates:
+                    messages.info(request, f"No card art found for {query}.")
+            _remember_registration_state(request)
+            return redirect("library:register")
+
         form = EnergyRegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            avatar_url = request.session.get("registration_avatar", "")
+            if avatar_url:
+                profile = user.profile
+                profile.avatar_url = avatar_url
+                profile.save(update_fields=["avatar_url"])
+                cache_remote_art(avatar_url)
+            for key in REGISTRATION_KEYS:
+                request.session.pop(key, None)
             messages.success(
                 request,
                 f"Account {user.username} created. Log in with your energy order.",
             )
             return redirect("library:login")
+        _remember_registration_state(request)
     else:
-        form = EnergyRegistrationForm()
+        form = None
+
+    username = request.session.get("registration_username", "")
+    energy = request.session.get("registration_energy", [])
+    initial = {"username": username}
+    energy_summary = []
+    energy_tiles = None
+    if len(energy) == 3:
+        initial.update({
+            "first_type": energy[0],
+            "second_type": energy[1],
+            "third_type": energy[2],
+        })
+        energy_summary = [ENERGY_TYPE_LABELS.get(code, code) for code in energy]
+    else:
+        energy_tiles = build_registration_grid()
+    if request.method == "GET":
+        form = EnergyRegistrationForm(initial=initial)
+    chosen_remote = request.session.get("registration_avatar", "")
     return render(
         request,
         "library/register.html",
-        {"form": form, "energy_tiles": build_registration_grid()},
+        {
+            "form": form,
+            "energy_tiles": energy_tiles,
+            "energy_summary": energy_summary,
+            "candidates": request.session.get("registration_candidates", []),
+            "query": request.session.get("registration_query", ""),
+            "chosen_avatar": cached_art_url(chosen_remote) if chosen_remote else None,
+            "starter_pokemon": STARTER_POKEMON,
+        },
     )
 
 
@@ -260,6 +375,8 @@ def login_view(request):
 def index(request):
     """Show the family, a reader's own page, or the names that lead to sign-in."""
     user = request.user
+    own_reader = None
+    recent_lines = []
     if user.is_authenticated and user.is_staff:
         readers = annotate_chapter_balance(
             get_user_model()
@@ -273,6 +390,8 @@ def index(request):
                 pk=user.pk, is_staff=False, is_active=True
             )
         )
+        own_reader = readers.first()
+        recent_lines = _statement_lines(own_reader)[:6] if own_reader else []
         cards = Card.objects.filter(for_sale=True).order_by("name", "set_name")
     else:
         readers = get_user_model().objects.filter(
@@ -282,7 +401,12 @@ def index(request):
     return render(
         request,
         "library/index.html",
-        {"readers": readers, "cards": cards},
+        {
+            "readers": readers,
+            "cards": cards,
+            "own_reader": own_reader,
+            "recent_lines": recent_lines,
+        },
     )
 
 
@@ -290,25 +414,7 @@ def index(request):
 def wallet(request, reader_id):
     """Render one reader's readings and purchases as a statement with one total."""
     reader = _get_active_reader(reader_id)
-    readings = Reading.objects.filter(book__owner=reader).select_related("book")
-    purchases = Purchase.objects.filter(user=reader).select_related("card")
-    lines = [
-        StatementLine(
-            when=reading.logged_at,
-            description=f"Read {reading.chapters} chapters of {reading.book.title}",
-            change=reading.chapters,
-        )
-        for reading in readings
-    ]
-    lines.extend(
-        StatementLine(
-            when=purchase.purchased_at,
-            description=f"Bought {purchase.card.name}",
-            change=-purchase.chapters_spent,
-        )
-        for purchase in purchases
-    )
-    lines.sort(key=lambda line: line.when, reverse=True)
+    lines = _statement_lines(reader)
     # The footer total is the annotated balance, the same figure the home page
     # shows, rather than a second sum that could drift from it.
     balance = _reader_balance(reader)
@@ -457,6 +563,21 @@ def shop(request):
     return render(request, "library/shop.html", {"cards": cards})
 
 
+@family_required
+def family_progress(request):
+    """Render the family's weekly chapters and shared monthly target."""
+    readers = list(
+        get_user_model().objects.filter(
+            is_staff=False, is_active=True
+        ).order_by("username")
+    )
+    return render(
+        request,
+        "library/progress.html",
+        {"progress": build_family_progress(readers)},
+    )
+
+
 @require_safe
 def serve_art(request, name):
     """Serve one cached artwork file with a long-lived cache header."""
@@ -536,6 +657,13 @@ def manage_readers(request):
             "locked": bool(
                 profile and profile.failed_attempts >= MAX_ENERGY_FAILURES
             ),
+            "avatar_local": profile.cached_avatar_url if profile else None,
+            "avatar_candidates": request.session.get(
+                f"manage_avatar_candidates_{reader.pk}", []
+            ),
+            "avatar_query": request.session.get(
+                f"manage_avatar_query_{reader.pk}", ""
+            ),
         })
     return render(request, "library/manage_readers.html", {"rows": rows})
 
@@ -564,6 +692,71 @@ def reset_energy(request, reader_id):
     profile.failed_attempts = 0
     profile.save()
     messages.success(request, f"Energy order reset for {reader.username}.")
+    return redirect("library:manage_readers")
+
+
+@parent_required
+@require_POST
+def manage_reader_avatar_search(request, reader_id):
+    """Search card art for a reader's portrait."""
+    reader = get_object_or_404(
+        get_user_model(), pk=reader_id, is_staff=False, is_active=True
+    )
+    query = (request.POST.get("query") or "").strip()
+    if not query:
+        messages.error(request, "Type a Pokemon name.")
+        return redirect("library:manage_readers")
+    try:
+        candidates = search_avatar_candidates(query)
+    except LookupUnavailable:
+        candidates = []
+        messages.error(request, "TCGdex could not be reached. Try again.")
+    request.session[f"manage_avatar_candidates_{reader.pk}"] = candidates
+    request.session[f"manage_avatar_query_{reader.pk}"] = query
+    if not candidates:
+        messages.info(request, f"No card art found for {query}.")
+    return redirect("library:manage_readers")
+
+
+@parent_required
+@require_POST
+def manage_reader_avatar_pick(request, reader_id):
+    """Set a reader's picture from the searched candidates."""
+    reader = get_object_or_404(
+        get_user_model(), pk=reader_id, is_staff=False, is_active=True
+    )
+    profile = Profile.objects.filter(user=reader).first()
+    if profile is None:
+        messages.error(request, "Set an energy order for this reader first.")
+        return redirect("library:manage_readers")
+    chosen = (request.POST.get("avatar_url") or "").strip()
+    candidates = request.session.get(f"manage_avatar_candidates_{reader.pk}", [])
+    if not any(item["remote_url"] == chosen for item in candidates):
+        messages.error(request, "That picture is no longer available.")
+        return redirect("library:manage_readers")
+    profile.avatar_url = chosen
+    profile.save(update_fields=["avatar_url"])
+    cache_remote_art(chosen)
+    request.session.pop(f"manage_avatar_candidates_{reader.pk}", None)
+    request.session.pop(f"manage_avatar_query_{reader.pk}", None)
+    messages.success(request, f"Picture set for {reader.username}.")
+    return redirect("library:manage_readers")
+
+
+@parent_required
+@require_POST
+def manage_reader_avatar_clear(request, reader_id):
+    """Clear a reader's picture so the plain default shows."""
+    reader = get_object_or_404(
+        get_user_model(), pk=reader_id, is_staff=False, is_active=True
+    )
+    profile = Profile.objects.filter(user=reader).first()
+    if profile is None:
+        messages.error(request, "This reader has no picture to clear.")
+    else:
+        profile.avatar_url = ""
+        profile.save(update_fields=["avatar_url"])
+        messages.success(request, f"Picture cleared for {reader.username}.")
     return redirect("library:manage_readers")
 
 

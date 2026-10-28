@@ -13,7 +13,12 @@ from django.conf import settings
 from django.urls import reverse
 
 from .artcache import cache_remote_art, local_name_for_url
-from .lookups import LookupUnavailable, search_tcgdex
+from .lookups import (
+    LookupUnavailable,
+    build_tcgdex_image_url,
+    fetch_tcgdex_card,
+    search_tcgdex,
+)
 
 ENERGY_TYPES = (
     ("grass", "Grass"),
@@ -99,7 +104,26 @@ def cache_energy_deck():
         for row in rows:
             if len(names) >= PRINTS_PER_TYPE:
                 break
-            url = row.get("image_url")
+            if not row.get("image_url"):
+                continue
+            # The search row already carries the card's name. Reject a special
+            # before spending a record request on it.
+            if row.get("name") != f"{label} Energy":
+                continue
+            try:
+                record = fetch_tcgdex_card(row["id"])
+            except LookupUnavailable:
+                continue
+            if record is None:
+                continue
+            # Both tests must pass. A special energy carries rules text, so it
+            # has an effect key; the record name check repeats the row's name
+            # against the authoritative record.
+            if "effect" in record:
+                continue
+            if record.get("name") != f"{label} Energy":
+                continue
+            url = build_tcgdex_image_url(record.get("image"))
             if not url:
                 continue
             name = local_name_for_url(url)
@@ -114,9 +138,10 @@ def cache_energy_deck():
                 fetched += 1
             seen.add(name)
             names.append(name)
-        result[code] = names
-        if len(names) < PRINTS_PER_TYPE:
-            missing += PRINTS_PER_TYPE - len(names)
+        if names:
+            result[code] = names
+            if len(names) < PRINTS_PER_TYPE:
+                missing += PRINTS_PER_TYPE - len(names)
 
     _write_energy_deck(result)
     return {"fetched": fetched, "already": already, "missing": missing}
@@ -133,14 +158,26 @@ def energy_print_urls(type_code, deck=None):
     return urls
 
 
-def build_energy_grid(required_types, deck=None, size=9):
-    """Return nine distinct energy tiles that include the required types."""
+def available_energy_types(deck=None):
+    """Return the energy types that have at least one cached print."""
     if deck is None:
         deck = load_energy_deck()
+    return [
+        (code, label)
+        for code, label in ENERGY_TYPES
+        if energy_print_urls(code, deck)
+    ]
+
+
+def build_energy_grid(required_types, deck=None, size=9):
+    """Return distinct energy tiles for available types, including required ones."""
+    if deck is None:
+        deck = load_energy_deck()
+    available = [code for code, _ in available_energy_types(deck)]
     required = list(
-        dict.fromkeys(code for code in required_types if code in ENERGY_TYPE_LABELS)
+        dict.fromkeys(code for code in required_types if code in available)
     )
-    pool = [code for code, _ in ENERGY_TYPES if code not in required]
+    pool = [code for code in available if code not in required]
     extra = random.sample(pool, min(size - len(required), len(pool)))
     codes = required + extra
     random.shuffle(codes)
@@ -151,22 +188,22 @@ def build_energy_grid(required_types, deck=None, size=9):
         tiles.append({
             "code": code,
             "label": ENERGY_TYPE_LABELS[code],
-            "image_url": random.choice(urls) if urls else None,
+            "image_url": random.choice(urls),
         })
     return tiles
 
 
 def build_registration_grid(deck=None):
-    """Return one tile per energy type for the registration picker."""
+    """Return one tile per available energy type for the registration picker."""
     if deck is None:
         deck = load_energy_deck()
     tiles = []
-    for code, label in ENERGY_TYPES:
+    for code, label in available_energy_types(deck):
         urls = energy_print_urls(code, deck)
         tiles.append({
             "code": code,
             "label": label,
-            "image_url": random.choice(urls) if urls else None,
+            "image_url": random.choice(urls),
         })
     random.shuffle(tiles)
     return tiles

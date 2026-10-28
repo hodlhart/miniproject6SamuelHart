@@ -28,6 +28,11 @@
             your login; there is no password.
           </p>
 
+          {% if energy_summary %}
+          <div class="alert alert-secondary">
+            Your energy order: {{ energy_summary|join:", " }}.
+          </div>
+          {% else %}
           <div class="energy-grid registration-grid">
             {% for tile in energy_tiles %}
             <button type="button" class="energy-tile"
@@ -41,6 +46,7 @@
             </button>
             {% endfor %}
           </div>
+          {% endif %}
 
           {% for field in form %}
           {% if field.is_hidden %}
@@ -52,9 +58,57 @@
           {% endfor %}
 
           <p id="energy-order" class="text-secondary mt-3">
-            Tap three energy cards.
+            {% if energy_summary %}Energy order saved.{% else %}Tap three energy cards.{% endif %}
           </p>
-          <button type="submit" id="energy-submit" class="btn btn-primary" disabled>
+
+          <h2 class="h5 mt-4">Picture (optional)</h2>
+          <p class="text-secondary">
+            Search a Pokemon, or tap one of these, then choose a card.
+          </p>
+          <div class="input-group mb-2">
+            <input type="search" name="query" class="form-control"
+                   value="{{ query }}" placeholder="Pikachu">
+            <button type="submit" name="action" value="search"
+                    class="btn btn-outline-primary">Search</button>
+          </div>
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            {% for starter in starter_pokemon %}
+            <button type="submit" name="query" value="{{ starter }}"
+                    class="btn btn-sm btn-outline-secondary">{{ starter }}</button>
+            {% endfor %}
+          </div>
+
+          {% if chosen_avatar %}
+          <div class="mb-3">
+            <p class="fw-bold mb-1">Your picture</p>
+            <img src="{{ chosen_avatar }}" alt="Your chosen picture"
+                 class="avatar-choice">
+            <p class="small text-secondary mt-1">
+              Search again if you want a different one.
+            </p>
+          </div>
+          {% endif %}
+
+          {% if candidates %}
+          <div class="mb-3">
+            <p class="mb-2">Pick a card:</p>
+            <div class="d-flex flex-wrap gap-3">
+              {% for candidate in candidates %}
+              <div class="text-center">
+                <img src="{{ candidate.local_url }}"
+                     alt="{{ candidate.name }} card art" class="avatar-choice">
+                <p class="small mb-1">{{ candidate.name }}</p>
+                <button type="submit" name="avatar_url"
+                        value="{{ candidate.remote_url }}"
+                        class="btn btn-sm btn-primary">Use this picture</button>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          <button type="submit" name="action" value="create" id="energy-submit"
+                  class="btn btn-primary" {% if not energy_summary %}disabled{% endif %}>
             Create account
           </button>
         </form>
@@ -65,5 +119,5 @@
     </div>
   </div>
 </div>
-{% include "library/_energy_grid_script.html" %}
+{% if energy_tiles %}{% include "library/_energy_grid_script.html" %}{% endif %}
 {% endblock %}

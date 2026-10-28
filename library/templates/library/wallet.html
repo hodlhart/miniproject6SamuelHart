@@ -3,6 +3,7 @@
 {% block title %}{{ reader.username }}'s wallet{% endblock %}
 
 {% block content %}
+{% include "library/_reader_back.html" %}
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">{{ reader.username }}'s wallet</h1>
   <div class="d-flex flex-wrap gap-2">
@@ -17,9 +18,6 @@
   </div>
 </div>
 
-<p class="text-secondary">
-  <a href="{% url 'library:index' %}">Back to all readers</a>
-</p>
 
 <table class="table table-striped align-middle bg-white">
   <thead>

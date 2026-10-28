@@ -54,6 +54,64 @@
             Reset energy order
           </button>
         </form>
+
+        <hr>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          {% if row.avatar_local %}
+          <img src="{{ row.avatar_local }}"
+               alt="{{ row.reader.username }}'s picture" class="avatar-mini">
+          {% else %}
+          <span class="avatar-mini avatar-default" aria-hidden="true">
+            {{ row.reader.username|first|upper }}
+          </span>
+          {% endif %}
+          <span class="small text-secondary">Picture</span>
+        </div>
+        {% if row.profile %}
+        <form method="post"
+              action="{% url 'library:manage_reader_avatar_search' row.reader.pk %}"
+              class="row g-2 mb-2">
+          {% csrf_token %}
+          <div class="col">
+            <input type="search" name="query" class="form-control form-control-sm"
+                   value="{{ row.avatar_query }}" placeholder="Pikachu">
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-outline-primary">
+              Search
+            </button>
+          </div>
+        </form>
+        {% if row.avatar_candidates %}
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          {% for candidate in row.avatar_candidates %}
+          <form method="post"
+                action="{% url 'library:manage_reader_avatar_pick' row.reader.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="avatar_url" value="{{ candidate.remote_url }}">
+            <button type="submit" class="btn btn-light p-1"
+                    title="{{ candidate.name }}">
+              <img src="{{ candidate.local_url }}"
+                   alt="{{ candidate.name }} card art" class="avatar-choice">
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if row.avatar_local %}
+        <form method="post"
+              action="{% url 'library:manage_reader_avatar_clear' row.reader.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-outline-danger">
+            Clear picture
+          </button>
+        </form>
+        {% endif %}
+        {% else %}
+        <p class="small text-secondary mb-0">
+          Set an energy order before choosing a picture.
+        </p>
+        {% endif %}
       </div>
     </div>
   </div>

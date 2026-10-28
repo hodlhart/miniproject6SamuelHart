@@ -153,6 +153,14 @@ class Profile(models.Model):
     third_type = models.CharField(max_length=20, choices=ENERGY_TYPES)
     energy_hash = models.CharField(max_length=128)
     failed_attempts = models.PositiveSmallIntegerField(default=0)
+    # The remote card-art address, not a cached file name. The local picture is
+    # resolved through the same cache helper the cards and covers use.
+    avatar_url = models.CharField(max_length=500, blank=True)
+
+    @property
+    def cached_avatar_url(self):
+        """Return the local URL for this reader's cached picture, or None."""
+        return cached_art_url(self.avatar_url)
 
     def __str__(self):
         """Return the reader and their first energy type."""

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Family progress{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-2">Family progress</h1>
+<p class="text-secondary">
+  Chapters only. Book titles and covers stay private.
+</p>
+
+<section class="mb-5">
+  <h2 class="h4">This month</h2>
+  <p class="lead">{{ progress.sentence }}</p>
+  <div class="progress" role="progressbar"
+       aria-valuenow="{{ progress.month_total }}" aria-valuemin="0"
+       aria-valuemax="{{ progress.target }}"
+       aria-label="Chapters read by the family this month">
+    <div class="progress-bar" style="width: {{ progress.percent }}%"></div>
+  </div>
+</section>
+
+{% if progress.no_data_names %}
+<p class="text-secondary">
+  No chapters logged yet: {{ progress.no_data_names|join:", " }}.
+</p>
+{% endif %}
+
+<section>
+  <h2 class="h4">Last eight weeks</h2>
+
+  {% if progress.readers %}
+  <ul class="list-inline mb-3">
+    {% for reader in progress.readers %}
+    <li class="list-inline-item me-3">
+      <span class="reader-dot" style="background-color: {{ reader.colour }}"></span>
+      {{ reader.name }}
+    </li>
+    {% endfor %}
+  </ul>
+
+  <svg viewBox="0 0 {{ progress.chart.width }} {{ progress.chart.height }}"
+       class="progress-chart" role="img"
+       aria-label="Weekly chapters for each reader over the last eight weeks">
+    {% for tick in progress.y_ticks %}
+    <line x1="{{ progress.chart.left }}" y1="{{ tick.y }}"
+          x2="{{ progress.chart.left|add:progress.chart.plot_width }}"
+          y2="{{ tick.y }}" class="chart-grid"></line>
+    <text x="{{ progress.chart.left|add:-8 }}" y="{{ tick.y|add:4 }}"
+          text-anchor="end" class="chart-axis">{{ tick.label }}</text>
+    {% endfor %}
+    {% for bar in progress.bars %}
+    <rect x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}"
+          height="{{ bar.height }}" fill="{{ bar.colour }}" rx="2">
+      <title>{{ bar.title }}</title>
+    </rect>
+    {% endfor %}
+    {% for label in progress.week_labels %}
+    <text x="{{ label.x }}" y="{{ progress.chart.height|add:-16 }}"
+          text-anchor="middle" class="chart-axis">{{ label.label }}</text>
+    {% endfor %}
+  </svg>
+
+  <table class="table table-sm align-middle bg-white mt-4">
+    <thead>
+      <tr>
+        <th scope="col">Week of</th>
+        {% for reader in progress.readers %}
+        <th scope="col" class="text-end">
+          <span class="reader-dot"
+                style="background-color: {{ reader.colour }}"></span>
+          {{ reader.name }}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for week in progress.weeks %}
+      <tr>
+        <th scope="row">{{ week.label }}</th>
+        {% for value in week.values %}
+        <td class="text-end">{{ value }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-secondary">No readers yet, so there is nothing to chart.</p>
+  {% endif %}
+</section>
+{% endblock %}
