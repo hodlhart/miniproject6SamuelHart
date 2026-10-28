@@ -3,10 +3,13 @@
 # Mini Project 6
 
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.hashers import make_password
 from django.utils.text import slugify
 
-from .models import Book, Card, Reading
+from .energy import ENERGY_TYPES
+from .models import Book, Card, Profile, Reading
 
 
 class LoginForm(AuthenticationForm):
@@ -22,24 +25,105 @@ class LoginForm(AuthenticationForm):
     )
 
 
-class ReaderCreationForm(UserCreationForm):
-    """Django's user creation form, restricted to an ordinary reader account."""
+class UsernameForm(forms.Form):
+    """Ask for the reader or parent name before choosing a login method."""
 
-    def __init__(self, *args, **kwargs):
-        """Add Bootstrap classes to the username and password inputs."""
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs["class"] = "form-control"
+    username = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={"class": "form-control", "autofocus": True}),
+    )
+
+
+def _require_distinct_types(cleaned_data):
+    """Raise a form error unless three different energy types are present."""
+    types = [
+        cleaned_data.get("first_type"),
+        cleaned_data.get("second_type"),
+        cleaned_data.get("third_type"),
+    ]
+    if all(types) and len(set(types)) != 3:
+        raise forms.ValidationError("Choose three different energy types.")
+
+
+class EnergySequenceForm(forms.Form):
+    """Validate three distinct energy type codes in order."""
+
+    first_type = forms.ChoiceField(choices=ENERGY_TYPES, widget=forms.HiddenInput)
+    second_type = forms.ChoiceField(choices=ENERGY_TYPES, widget=forms.HiddenInput)
+    third_type = forms.ChoiceField(choices=ENERGY_TYPES, widget=forms.HiddenInput)
+
+    def clean(self):
+        """Require three different energy types."""
+        cleaned_data = super().clean()
+        _require_distinct_types(cleaned_data)
+        return cleaned_data
+
+
+class EnergyRegistrationForm(forms.ModelForm):
+    """Create a reader with an unusable password and a three-energy order."""
+
+    first_type = forms.ChoiceField(choices=ENERGY_TYPES, widget=forms.HiddenInput)
+    second_type = forms.ChoiceField(choices=ENERGY_TYPES, widget=forms.HiddenInput)
+    third_type = forms.ChoiceField(choices=ENERGY_TYPES, widget=forms.HiddenInput)
+
+    class Meta:
+        model = get_user_model()
+        fields = ["username"]
+        widgets = {
+            "username": forms.TextInput(
+                attrs={"class": "form-control", "autocomplete": "username"}
+            ),
+        }
+
+    def clean(self):
+        """Require three different energy types."""
+        cleaned_data = super().clean()
+        _require_distinct_types(cleaned_data)
+        return cleaned_data
 
     def save(self, commit=True):
-        """Create an active, non-staff, non-superuser reader account."""
+        """Create the reader with an unusable password and their Profile."""
         user = super().save(commit=False)
+        user.set_unusable_password()
         user.is_staff = False
         user.is_superuser = False
         user.is_active = True
         if commit:
             user.save()
+            first = self.cleaned_data["first_type"]
+            second = self.cleaned_data["second_type"]
+            third = self.cleaned_data["third_type"]
+            Profile.objects.create(
+                user=user,
+                first_type=first,
+                second_type=second,
+                third_type=third,
+                energy_hash=make_password(f"{first}:{second}:{third}"),
+            )
         return user
+
+
+class EnergyResetForm(forms.Form):
+    """Let a parent set a new three-energy order for a reader."""
+
+    first_type = forms.ChoiceField(
+        choices=ENERGY_TYPES,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    second_type = forms.ChoiceField(
+        choices=ENERGY_TYPES,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    third_type = forms.ChoiceField(
+        choices=ENERGY_TYPES,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def clean(self):
+        """Require three different energy types."""
+        cleaned_data = super().clean()
+        _require_distinct_types(cleaned_data)
+        return cleaned_data
 
 
 def build_tcgdex_id(set_name, number):

@@ -86,7 +86,7 @@ def search_open_library(title):
 
 
 def search_tcgdex(name, limit=TCGDEX_SEARCH_LIMIT):
-    """Return up to limit TCGdex matches for a card name."""
+    """Return TCGdex matches for a card name, all when limit is None."""
     params = urlencode({"name": name})
     try:
         data = _fetch_json(f"{TCGDEX_CARDS}?{params}")
@@ -96,7 +96,8 @@ def search_tcgdex(name, limit=TCGDEX_SEARCH_LIMIT):
         raise LookupUnavailable("TCGdex returned an unexpected response.")
 
     results = []
-    for row in data[:limit]:
+    rows = data if limit is None else data[:limit]
+    for row in rows:
         results.append({
             "id": row.get("id", ""),
             "local_id": row.get("localId", ""),

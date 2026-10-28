@@ -1,0 +1,33 @@
+<script>
+(function () {
+  const tiles = document.querySelectorAll(".energy-tile");
+  const fields = [
+    document.getElementById("id_first_type"),
+    document.getElementById("id_second_type"),
+    document.getElementById("id_third_type"),
+  ];
+  const output = document.getElementById("energy-order");
+  const submit = document.getElementById("energy-submit");
+  const chosen = [];
+
+  tiles.forEach(function (tile) {
+    tile.addEventListener("click", function () {
+      const code = tile.dataset.type;
+      if (chosen.length >= 3 || chosen.some(function (item) {
+        return item.code === code;
+      })) {
+        return;
+      }
+      chosen.push({code: code, label: tile.dataset.label});
+      tile.classList.add("selected");
+      fields[chosen.length - 1].value = code;
+      output.textContent = chosen.map(function (item, index) {
+        return (index + 1) + ". " + item.label;
+      }).join("  ");
+      if (chosen.length === 3) {
+        submit.disabled = false;
+      }
+    });
+  });
+})();
+</script>

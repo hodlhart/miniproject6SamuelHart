@@ -67,3 +67,61 @@ main {
     position: relative;
     z-index: 1;
 }
+
+.energy-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.registration-grid {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 576px) {
+    .registration-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.energy-tile {
+    padding: 0.25rem;
+    background-color: #fff;
+    border: 2px solid transparent;
+    border-radius: 0.5rem;
+    cursor: pointer;
+}
+
+.energy-tile.selected {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.25);
+}
+
+.energy-tile img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 5 / 7;
+    object-fit: contain;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+}
+
+.energy-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 5 / 7;
+    background-color: #f8f9fa;
+    border: 1px dashed #adb5bd;
+    border-radius: 0.25rem;
+    color: #6c757d;
+    font-size: 0.75rem;
+}
+
+.energy-label {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    text-align: center;
+}

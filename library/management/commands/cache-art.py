@@ -6,14 +6,15 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from library.artcache import cache_remote_art, local_name_for_url
+from library.energy import cache_energy_deck
 from library.lookups import build_cover_url
 from library.models import Book, Card
 
 
 class Command(BaseCommand):
-    """Fetch every card image and book cover into the local artwork cache."""
+    """Fetch card, cover, and energy artwork into the local cache."""
 
-    help = "Fetch card and book artwork into the local cache."
+    help = "Fetch card, book cover, and energy artwork into the local cache."
 
     def handle(self, *args, **options):
         """Fetch missing artwork and report fetched, cached and failed counts."""
@@ -42,6 +43,12 @@ class Command(BaseCommand):
                 failed += 1
 
         self.stdout.write(
-            f"Fetched: {fetched} | Already cached: {already} | "
+            f"Cards and covers: Fetched: {fetched} | Already cached: {already} | "
             f"Could not fetch: {failed}"
+        )
+        energy = cache_energy_deck()
+        self.stdout.write(
+            f"Energy deck: Fetched: {energy['fetched']} | "
+            f"Already cached: {energy['already']} | "
+            f"Missing prints: {energy['missing']}"
         )

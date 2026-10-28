@@ -1,0 +1,9 @@
+# Generated migrations are not edited by hand.
+exclude = ["library/migrations"]
+
+[lint.per-file-ignores]
+# Django Meta classes and form class attributes are mutable by design.
+"library/models.py" = ["RUF012"]
+"library/forms.py" = ["RUF012"]
+# The course requires the hyphenated management command name.
+"library/management/commands/cache-art.py" = ["N999"]

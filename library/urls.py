@@ -6,21 +6,13 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from . import views
-from .forms import LoginForm
 
 app_name = "library"
 
 urlpatterns = [
     path("", views.index, name="index"),
     path("accounts/register/", views.register, name="register"),
-    path(
-        "accounts/login/",
-        auth_views.LoginView.as_view(
-            template_name="library/login.html",
-            authentication_form=LoginForm,
-        ),
-        name="login",
-    ),
+    path("accounts/login/", views.login_view, name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("readers/<int:reader_id>/", views.wallet, name="wallet"),
     path("readers/<int:reader_id>/log/", views.log_reading, name="log_reading"),
@@ -36,4 +28,10 @@ urlpatterns = [
     ),
     path("manage/cards/new/", views.manage_card_new, name="manage_card_new"),
     path("manage/cards/", views.manage_cards, name="manage_cards"),
+    path("manage/readers/", views.manage_readers, name="manage_readers"),
+    path(
+        "manage/readers/<int:reader_id>/reset/",
+        views.reset_energy,
+        name="reset_energy",
+    ),
 ]

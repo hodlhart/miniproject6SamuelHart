@@ -4,34 +4,109 @@
 
 {% block content %}
 <div class="row justify-content-center">
-  <div class="col-md-6 col-lg-5">
+  <div class="col-lg-8">
     <h1 class="h3 mb-3">Log in</h1>
     <div class="card">
       <div class="card-body">
+        {% if stage == "identify" %}
         <form method="post" novalidate>
           {% csrf_token %}
+          <input type="hidden" name="action" value="identify">
           {% if next %}
           <input type="hidden" name="next" value="{{ next }}">
           {% endif %}
-          {% if form.non_field_errors %}
-          <div class="alert alert-danger" role="alert">
-            {{ form.non_field_errors }}
-          </div>
-          {% endif %}
-          {% for field in form %}
+          {% for field in identify_form %}
           <div class="mb-3">
-            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            <label class="form-label" for="{{ field.id_for_label }}">
+              {{ field.label }}
+            </label>
             {{ field }}
             {% for error in field.errors %}
             <div class="invalid-feedback d-block">{{ error }}</div>
             {% endfor %}
           </div>
           {% endfor %}
-          <button type="submit" class="btn btn-primary">Log in</button>
+          <button type="submit" class="btn btn-primary">Continue</button>
         </form>
         <p class="mt-3 mb-0">
           New reader? <a href="{% url 'library:register' %}">Create an account</a>.
         </p>
+
+        {% elif stage == "password" %}
+        <p class="text-secondary">Parent account: {{ username }}</p>
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="password">
+          <input type="hidden" name="username" value="{{ username }}">
+          {% if next %}
+          <input type="hidden" name="next" value="{{ next }}">
+          {% endif %}
+          {% if password_form.non_field_errors %}
+          <div class="alert alert-danger" role="alert">
+            {{ password_form.non_field_errors }}
+          </div>
+          {% endif %}
+          {% for field in password_form %}
+          {% if field.name == "password" %}
+          <div class="mb-3">
+            <label class="form-label" for="{{ field.id_for_label }}">
+              {{ field.label }}
+            </label>
+            {{ field }}
+            {% for error in field.errors %}
+            <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% endfor %}
+          <button type="submit" class="btn btn-primary">Log in</button>
+        </form>
+        <p class="mt-3 mb-0">
+          <a href="{% url 'library:login' %}">Start over</a>
+        </p>
+
+        {% elif stage == "energy" %}
+        <p class="text-secondary">Reader: {{ username }}</p>
+        <form method="post" id="energy-form" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="energy">
+          <input type="hidden" name="username" value="{{ username }}">
+          {% if next %}
+          <input type="hidden" name="next" value="{{ next }}">
+          {% endif %}
+          {% if energy_form.non_field_errors %}
+          <div class="alert alert-danger" role="alert">
+            {{ energy_form.non_field_errors }}
+          </div>
+          {% endif %}
+          {{ energy_form.first_type }}
+          {{ energy_form.second_type }}
+          {{ energy_form.third_type }}
+          <div class="energy-grid">
+            {% for tile in energy_tiles %}
+            <button type="button" class="energy-tile"
+                    data-type="{{ tile.code }}" data-label="{{ tile.label }}">
+              {% if tile.image_url %}
+              <img src="{{ tile.image_url }}" alt="{{ tile.label }} energy card">
+              {% else %}
+              <span class="energy-placeholder">{{ tile.label }}</span>
+              {% endif %}
+              <span class="energy-label">{{ tile.label }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          <p id="energy-order" class="text-secondary mt-3">
+            Tap three energy cards in your order.
+          </p>
+          <button type="submit" id="energy-submit" class="btn btn-primary" disabled>
+            Log in
+          </button>
+        </form>
+        <p class="mt-3 mb-0">
+          <a href="{% url 'library:login' %}">Start over</a>
+        </p>
+        {% include "library/_energy_grid_script.html" %}
+        {% endif %}
       </div>
     </div>
   </div>

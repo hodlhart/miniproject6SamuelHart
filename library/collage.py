@@ -10,8 +10,9 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from .artcache import cached_art_url
+from .energy import ENERGY_TYPES, energy_print_urls, load_energy_deck
 from .lookups import build_cover_url
-from .models import Book, Card, Purchase
+from .models import Book, Card, Profile, Purchase
 
 MAX_TILES = 12
 TOP_UP_THRESHOLD = 6
@@ -21,6 +22,11 @@ COVERS_PER_READER = 2
 def _cached_urls(remote_urls):
     """Return local URLs for remote artwork already in the cache."""
     return [url for url in (cached_art_url(u) for u in remote_urls) if url]
+
+
+def _tile_key(seed, url):
+    """Return a deterministic ordering key for one artwork URL."""
+    return hashlib.sha256(f"{seed}:{url}".encode()).hexdigest()
 
 
 def _global_candidates():
@@ -72,15 +78,41 @@ def _reader_candidates(reader_id):
     return candidates
 
 
+def _energy_fill(reader_id, needed, seed):
+    """Return cached energy tiles, favourite types first, then any type."""
+    profile = Profile.objects.filter(user_id=reader_id).first()
+    favourite = []
+    if profile:
+        favourite = [
+            profile.first_type,
+            profile.second_type,
+            profile.third_type,
+        ]
+    deck = load_energy_deck()
+    favourite_urls = []
+    for code in favourite:
+        favourite_urls.extend(energy_print_urls(code, deck))
+    other_urls = []
+    for code, _ in ENERGY_TYPES:
+        if code not in favourite:
+            other_urls.extend(energy_print_urls(code, deck))
+    favourite_urls = list(dict.fromkeys(favourite_urls))
+    other_urls = list(dict.fromkeys(other_urls))
+    favourite_urls.sort(key=lambda url: _tile_key(seed, url))
+    other_urls.sort(key=lambda url: _tile_key(seed, url))
+    return (favourite_urls + other_urls)[:needed]
+
+
 def build_wallpaper(reader_id):
     """Return up to twelve cached artwork URLs seeded by reader and day."""
-    if reader_id:
-        candidates = _reader_candidates(reader_id)
-    else:
-        candidates = _global_candidates()
-    unique = list(dict.fromkeys(candidates))
     seed = f"{reader_id}:{timezone.localdate().toordinal()}"
-    unique.sort(
-        key=lambda url: hashlib.sha256(f"{seed}:{url}".encode("utf-8")).hexdigest()
-    )
-    return unique[:MAX_TILES]
+    if reader_id:
+        own = list(dict.fromkeys(_reader_candidates(reader_id)))
+        own.sort(key=lambda url: _tile_key(seed, url))
+        own = own[:MAX_TILES]
+        if len(own) < MAX_TILES:
+            own.extend(_energy_fill(reader_id, MAX_TILES - len(own), seed))
+        return own[:MAX_TILES]
+    candidates = list(dict.fromkeys(_global_candidates()))
+    candidates.sort(key=lambda url: _tile_key(seed, url))
+    return candidates[:MAX_TILES]

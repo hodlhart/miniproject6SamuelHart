@@ -8,17 +8,29 @@ from datetime import datetime
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import IntegrityError, transaction
 from django.db.models import IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST, require_safe
 
 from .artcache import cache_remote_art, cached_art_url
 from .decorators import parent_required
-from .forms import CardForm, LogReadingForm, PickBookForm, ReaderCreationForm
+from .energy import build_energy_grid, build_registration_grid
+from .forms import (
+    CardForm,
+    EnergyRegistrationForm,
+    EnergyResetForm,
+    EnergySequenceForm,
+    LoginForm,
+    LogReadingForm,
+    PickBookForm,
+    UsernameForm,
+)
 from .lookups import (
     LookupUnavailable,
     card_initial_from_record,
@@ -26,7 +38,7 @@ from .lookups import (
     search_open_library,
     search_tcgdex,
 )
-from .models import Book, Card, Purchase, Reading, annotate_chapter_balance
+from .models import Book, Card, Profile, Purchase, Reading, annotate_chapter_balance
 
 ART_NAME_RE = re.compile(r"^[0-9a-f]{64}\.(?:jpg|jpeg|png|webp|gif|img)$")
 ART_CONTENT_TYPES = {
@@ -37,6 +49,7 @@ ART_CONTENT_TYPES = {
     ".gif": "image/gif",
     ".img": "application/octet-stream",
 }
+MAX_ENERGY_FAILURES = 5
 
 
 @dataclass(frozen=True)
@@ -67,19 +80,155 @@ def _reading_message(reading):
 
 
 def register(request):
-    """Create a reader account with Django's UserCreationForm."""
+    """Create a reader account with a three-energy login order."""
     if request.method == "POST":
-        form = ReaderCreationForm(request.POST)
+        form = EnergyRegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
             messages.success(
                 request,
-                f"Account {user.username} created. Log in to start reading.",
+                f"Account {user.username} created. Log in with your energy order.",
             )
             return redirect("library:login")
     else:
-        form = ReaderCreationForm()
-    return render(request, "library/register.html", {"form": form})
+        form = EnergyRegistrationForm()
+    return render(
+        request,
+        "library/register.html",
+        {"form": form, "energy_tiles": build_registration_grid()},
+    )
+
+
+def _safe_next(request, next_url):
+    """Return next_url when it is local, otherwise the login redirect."""
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, {request.get_host()}, require_https=request.is_secure()
+    ):
+        return next_url
+    return settings.LOGIN_REDIRECT_URL
+
+
+def login_view(request):
+    """Log in a parent with a password or a reader with three energy types."""
+    next_url = request.POST.get("next") or request.GET.get("next", "")
+    stage = "identify"
+    identify_form = UsernameForm()
+    energy_form = None
+    energy_tiles = None
+    password_form = None
+    username = ""
+
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+        username = (request.POST.get("username") or "").strip()
+
+        if action == "identify":
+            identify_form = UsernameForm(request.POST)
+            if identify_form.is_valid():
+                user = get_user_model().objects.filter(
+                    username=username, is_active=True
+                ).first()
+                if user is None:
+                    messages.error(request, "No active account with that name.")
+                elif user.is_staff:
+                    stage = "password"
+                    password_form = LoginForm(
+                        request, initial={"username": username}
+                    )
+                else:
+                    profile = Profile.objects.filter(user=user).first()
+                    if profile is None:
+                        messages.error(
+                            request,
+                            "This reader has no energy order yet. "
+                            "Ask a parent to set one.",
+                        )
+                    elif profile.failed_attempts >= MAX_ENERGY_FAILURES:
+                        messages.error(
+                            request,
+                            "Too many tries. Ask a parent to reset your energy order.",
+                        )
+                    else:
+                        stage = "energy"
+                        energy_form = EnergySequenceForm()
+                        energy_tiles = build_energy_grid(
+                            [
+                                profile.first_type,
+                                profile.second_type,
+                                profile.third_type,
+                            ]
+                        )
+        elif action == "password":
+            stage = "password"
+            password_form = LoginForm(request, data=request.POST)
+            if password_form.is_valid():
+                login(request, password_form.get_user())
+                return redirect(_safe_next(request, next_url))
+            messages.error(request, "That username and password did not match.")
+        elif action == "energy":
+            user = get_user_model().objects.filter(
+                username=username, is_active=True
+            ).first()
+            profile = Profile.objects.filter(user=user).first() if user else None
+            if user is None or profile is None:
+                messages.error(request, "That reader could not be found.")
+            elif profile.failed_attempts >= MAX_ENERGY_FAILURES:
+                messages.error(
+                    request,
+                    "Too many tries. Ask a parent to reset your energy order.",
+                )
+            else:
+                energy_form = EnergySequenceForm(request.POST)
+                if energy_form.is_valid():
+                    payload = ":".join([
+                        energy_form.cleaned_data["first_type"],
+                        energy_form.cleaned_data["second_type"],
+                        energy_form.cleaned_data["third_type"],
+                    ])
+                    if check_password(payload, profile.energy_hash):
+                        profile.failed_attempts = 0
+                        profile.save(update_fields=["failed_attempts"])
+                        login(
+                            request,
+                            user,
+                            backend="django.contrib.auth.backends.ModelBackend",
+                        )
+                        return redirect(_safe_next(request, next_url))
+                    profile.failed_attempts += 1
+                    profile.save(update_fields=["failed_attempts"])
+                    messages.error(request, "That order did not match. Try again.")
+                else:
+                    messages.error(request, "Choose three different energy types.")
+                if profile.failed_attempts >= MAX_ENERGY_FAILURES:
+                    stage = "identify"
+                    messages.error(
+                        request,
+                        "Too many tries. Ask a parent to reset your energy order.",
+                    )
+                else:
+                    stage = "energy"
+                    energy_form = EnergySequenceForm()
+                    energy_tiles = build_energy_grid(
+                        [
+                            profile.first_type,
+                            profile.second_type,
+                            profile.third_type,
+                        ]
+                    )
+
+    return render(
+        request,
+        "library/login.html",
+        {
+            "stage": stage,
+            "identify_form": identify_form,
+            "energy_form": energy_form,
+            "energy_tiles": energy_tiles,
+            "password_form": password_form,
+            "username": username,
+            "next": next_url,
+        },
+    )
 
 
 def index(request):
@@ -314,6 +463,60 @@ def manage_cards(request):
         return redirect("library:manage_cards")
     cards = Card.objects.order_by("name", "set_name")
     return render(request, "library/manage_cards.html", {"cards": cards})
+
+
+@parent_required
+def manage_readers(request):
+    """List readers and the parent's forms for resetting energy orders."""
+    readers = get_user_model().objects.filter(
+        is_staff=False, is_active=True
+    ).order_by("username")
+    rows = []
+    for reader in readers:
+        profile = Profile.objects.filter(user=reader).first()
+        initial = None
+        if profile:
+            initial = {
+                "first_type": profile.first_type,
+                "second_type": profile.second_type,
+                "third_type": profile.third_type,
+            }
+        rows.append({
+            "reader": reader,
+            "profile": profile,
+            "form": EnergyResetForm(initial=initial),
+            "locked": bool(
+                profile and profile.failed_attempts >= MAX_ENERGY_FAILURES
+            ),
+        })
+    return render(request, "library/manage_readers.html", {"rows": rows})
+
+
+@parent_required
+@require_POST
+def reset_energy(request, reader_id):
+    """Let a parent set a new energy order and clear the failure count."""
+    reader = get_object_or_404(
+        get_user_model(), pk=reader_id, is_staff=False, is_active=True
+    )
+    form = EnergyResetForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Choose three different energy types.")
+        return redirect("library:manage_readers")
+    first = form.cleaned_data["first_type"]
+    second = form.cleaned_data["second_type"]
+    third = form.cleaned_data["third_type"]
+    profile = Profile.objects.filter(user=reader).first()
+    if profile is None:
+        profile = Profile(user=reader)
+    profile.first_type = first
+    profile.second_type = second
+    profile.third_type = third
+    profile.energy_hash = make_password(f"{first}:{second}:{third}")
+    profile.failed_attempts = 0
+    profile.save()
+    messages.success(request, f"Energy order reset for {reader.username}.")
+    return redirect("library:manage_readers")
 
 
 @parent_required

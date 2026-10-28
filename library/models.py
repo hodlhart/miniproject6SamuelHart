@@ -8,6 +8,7 @@ from django.db.models import F, IntegerField, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, Lower
 
 from .artcache import cached_art_url
+from .energy import ENERGY_TYPES
 from .lookups import build_cover_url
 
 
@@ -134,6 +135,28 @@ class Purchase(models.Model):
     def __str__(self):
         """Return the card and buyer for this purchase."""
         return f"{self.card.name} bought by {self.user}"
+
+
+class Profile(models.Model):
+    """The ordered energy types a reader uses to log in."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="profile",
+    )
+    # The types are kept for two jobs only: building the nine-type login grid
+    # and prefilling a parent's reset form. The credential check uses the salted
+    # energy_hash below, never these fields.
+    first_type = models.CharField(max_length=20, choices=ENERGY_TYPES)
+    second_type = models.CharField(max_length=20, choices=ENERGY_TYPES)
+    third_type = models.CharField(max_length=20, choices=ENERGY_TYPES)
+    energy_hash = models.CharField(max_length=128)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        """Return the reader and their first energy type."""
+        return f"{self.user} ({self.first_type})"
 
 
 def annotate_chapter_balance(users):

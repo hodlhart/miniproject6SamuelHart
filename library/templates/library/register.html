@@ -4,30 +4,59 @@
 
 {% block content %}
 <div class="row justify-content-center">
-  <div class="col-md-6 col-lg-5">
+  <div class="col-lg-8">
     <h1 class="h3 mb-3">Create a reader account</h1>
     <div class="card">
       <div class="card-body">
         <form method="post" novalidate>
           {% csrf_token %}
           {% if form.non_field_errors %}
-          <div class="alert alert-danger" role="alert">
-            {{ form.non_field_errors }}
-          </div>
+          <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
           {% endif %}
-          {% for field in form %}
           <div class="mb-3">
-            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
-            {% if field.help_text %}
-            <div class="form-text">{{ field.help_text }}</div>
-            {% endif %}
-            {% for error in field.errors %}
+            <label class="form-label" for="{{ form.username.id_for_label }}">
+              {{ form.username.label }}
+            </label>
+            {{ form.username }}
+            {% for error in form.username.errors %}
             <div class="invalid-feedback d-block">{{ error }}</div>
             {% endfor %}
           </div>
+
+          <p class="text-secondary">
+            Tap three energy cards in the order you will remember. This order is
+            your login; there is no password.
+          </p>
+
+          <div class="energy-grid registration-grid">
+            {% for tile in energy_tiles %}
+            <button type="button" class="energy-tile"
+                    data-type="{{ tile.code }}" data-label="{{ tile.label }}">
+              {% if tile.image_url %}
+              <img src="{{ tile.image_url }}" alt="{{ tile.label }} energy card">
+              {% else %}
+              <span class="energy-placeholder">{{ tile.label }}</span>
+              {% endif %}
+              <span class="energy-label">{{ tile.label }}</span>
+            </button>
+            {% endfor %}
+          </div>
+
+          {% for field in form %}
+          {% if field.is_hidden %}
+          {{ field }}
+          {% for error in field.errors %}
+          <div class="alert alert-danger" role="alert">{{ error }}</div>
           {% endfor %}
-          <button type="submit" class="btn btn-primary">Create account</button>
+          {% endif %}
+          {% endfor %}
+
+          <p id="energy-order" class="text-secondary mt-3">
+            Tap three energy cards.
+          </p>
+          <button type="submit" id="energy-submit" class="btn btn-primary" disabled>
+            Create account
+          </button>
         </form>
         <p class="mt-3 mb-0">
           Already have an account? <a href="{% url 'library:login' %}">Log in</a>.
@@ -36,4 +65,5 @@
     </div>
   </div>
 </div>
+{% include "library/_energy_grid_script.html" %}
 {% endblock %}
