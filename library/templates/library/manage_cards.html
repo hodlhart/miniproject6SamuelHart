@@ -27,7 +27,18 @@
   <tbody>
     {% for card in cards %}
     <tr>
-      <td>{{ card.name }}</td>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          {% if card.cached_image_url %}
+          <img src="{{ card.cached_image_url }}" alt="{{ card.name }}"
+               class="avatar-mini">
+          {% else %}
+          <span class="avatar-mini card-art-placeholder card-thumb-placeholder"
+                aria-hidden="true">No image</span>
+          {% endif %}
+          <span>{{ card.name }}</span>
+        </div>
+      </td>
       <td>{{ card.set_name }} #{{ card.number }}</td>
       <td><span class="badge text-bg-secondary">{{ card.get_tier_display }}</span></td>
       <td class="text-end">{{ card.price_chapters }}</td>

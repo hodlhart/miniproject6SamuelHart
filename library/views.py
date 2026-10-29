@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import IntegrityError, transaction
-from django.db.models import IntegerField, Sum, Value
+from django.db.models import IntegerField, Max, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -377,6 +377,7 @@ def index(request):
     user = request.user
     own_reader = None
     recent_lines = []
+    recent_books = []
     if user.is_authenticated and user.is_staff:
         readers = annotate_chapter_balance(
             get_user_model()
@@ -392,6 +393,21 @@ def index(request):
         )
         own_reader = readers.first()
         recent_lines = _statement_lines(own_reader)[:6] if own_reader else []
+        if own_reader:
+            # The two rows a reader is most likely to continue: the books
+            # whose latest reading is newest, with the chapters summed per book.
+            recent_books = list(
+                Book.objects.filter(owner=own_reader, readings__isnull=False)
+                .annotate(
+                    chapters_read=Coalesce(
+                        Sum("readings__chapters"),
+                        Value(0),
+                        output_field=IntegerField(),
+                    ),
+                    last_read=Max("readings__logged_at"),
+                )
+                .order_by("-last_read")[:2]
+            )
         cards = Card.objects.filter(for_sale=True).order_by("name", "set_name")
     else:
         readers = get_user_model().objects.filter(
@@ -406,6 +422,7 @@ def index(request):
             "cards": cards,
             "own_reader": own_reader,
             "recent_lines": recent_lines,
+            "recent_books": recent_books,
         },
     )
 
@@ -470,6 +487,15 @@ def log_reading(request, reader_id):
                     return redirect("library:wallet", reader_id=reader.pk)
     else:
         form = LogReadingForm(reader=reader)
+        # A selected book is accepted only when it is one of this reader's
+        # own books. The form's queryset is never widened.
+        selected = request.GET.get("book", "").strip()
+        if selected.isdigit():
+            book = owned_books.filter(pk=int(selected)).first()
+            if book is not None:
+                form.initial["book"] = book.pk
+        if request.GET.get("new"):
+            form.fields["new_title"].widget.attrs["autofocus"] = True
 
     return render(
         request,

@@ -33,10 +33,110 @@
 </h1>
 
 {% if own_reader %}
-<a class="btn btn-primary btn-lg w-100 log-reading-button mb-4"
-   href="{% url 'library:log_reading' own_reader.pk %}">Log reading</a>
-{% endif %}
+<div class="row g-3 mb-5">
+  <div class="col-12 col-lg-7">
+    <div class="card h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex align-items-center gap-3 mb-2">
+          {% reader_avatar own_reader css_class="avatar-tile" %}
+          <div>
+            <h2 class="h4 card-title mb-1">{{ own_reader.username }}</h2>
+            <p class="display-4 mb-0">{{ own_reader.balance }}</p>
+          </div>
+        </div>
+        <p class="text-secondary">
+          {{ own_reader.chapters_read }} chapters read,
+          {{ own_reader.chapters_spent }} spent
+        </p>
 
+        <h3 class="h6 mt-4">Recent activity</h3>
+        {% if recent_lines %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-2">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Description</th>
+                <th scope="col" class="text-end">Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for line in recent_lines %}
+              <tr>
+                <td class="text-nowrap">{{ line.when|date:"M j, Y g:i a" }}</td>
+                <td>{{ line.description }}</td>
+                <td class="text-end
+                           {% if line.change > 0 %}text-success{% else %}text-danger{% endif %}">
+                  {% if line.change > 0 %}+{% endif %}{{ line.change }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-secondary">
+          Nothing logged yet. Use the Log reading button to add your first chapters.
+        </p>
+        {% endif %}
+
+        <div class="d-flex flex-wrap gap-2 mt-auto pt-3">
+          <a class="btn btn-sm btn-outline-primary"
+             href="{% url 'library:wallet' own_reader.pk %}">View full wallet</a>
+          <a class="btn btn-sm btn-outline-secondary"
+             href="{% url 'library:books' own_reader.pk %}">Books</a>
+          <a class="btn btn-sm btn-outline-secondary"
+             href="{% url 'library:my_cards' own_reader.pk %}">Cards owned</a>
+          <a class="btn btn-sm btn-outline-secondary"
+             href="{% url 'library:reader_shop' own_reader.pk %}">Shop</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="card h-100">
+      <div class="card-body d-flex flex-column">
+        <a class="btn btn-primary btn-lg w-100"
+           href="{% url 'library:log_reading' own_reader.pk %}">Log reading</a>
+
+        <h3 class="h6 mt-4">Recent books</h3>
+        <div class="book-rows">
+          {% for book in recent_books %}
+          <a class="book-row"
+             href="{% url 'library:log_reading' own_reader.pk %}?book={{ book.pk }}">
+            {% if book.cached_cover_url %}
+            <img src="{{ book.cached_cover_url }}" alt="Cover of {{ book.title }}"
+                 class="book-thumb">
+            {% else %}
+            <span class="book-thumb book-thumb-placeholder" aria-hidden="true">
+              No cover
+            </span>
+            {% endif %}
+            <span class="book-row-text">
+              <span class="book-row-title">{{ book.title }}</span>
+              <span class="small text-secondary">{{ book.chapters_read }} chapters logged</span>
+            </span>
+          </a>
+          {% empty %}
+          <p class="text-secondary mb-0">No books logged yet.</p>
+          {% endfor %}
+        </div>
+
+        <div class="d-flex gap-2 mt-auto pt-3">
+          <a class="btn btn-outline-secondary flex-fill"
+             href="{% url 'library:log_reading' own_reader.pk %}?new=1">
+            <span aria-hidden="true">+</span> New book
+          </a>
+          <a class="btn btn-outline-primary flex-fill"
+             href="{% url 'library:log_reading' own_reader.pk %}">Log</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
 <div class="row g-3 mb-5">
   {% for reader in readers %}
   <div class="col-md-6 col-xl-4">
@@ -52,44 +152,10 @@
         <p class="text-secondary">
           {{ reader.chapters_read }} chapters read, {{ reader.chapters_spent }} spent
         </p>
-        {% if own_reader and reader.pk == own_reader.pk %}
-        <h3 class="h6 mt-4">Recent activity</h3>
-        {% if recent_lines %}
-        <table class="table table-sm align-middle mb-2">
-          <thead>
-            <tr>
-              <th scope="col">Date</th>
-              <th scope="col">Description</th>
-              <th scope="col" class="text-end">Change</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for line in recent_lines %}
-            <tr>
-              <td class="text-nowrap">{{ line.when|date:"M j, Y g:i a" }}</td>
-              <td>{{ line.description }}</td>
-              <td class="text-end
-                         {% if line.change > 0 %}text-success{% else %}text-danger{% endif %}">
-                {% if line.change > 0 %}+{% endif %}{{ line.change }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% else %}
-        <p class="text-secondary">
-          Nothing logged yet. Log your first reading above.
-        </p>
-        {% endif %}
-        <a class="btn btn-sm btn-outline-primary mb-3"
-           href="{% url 'library:wallet' reader.pk %}">View full wallet</a>
-        {% endif %}
         <div class="d-flex flex-wrap gap-2">
-          {% if not own_reader or reader.pk != own_reader.pk %}
           <a class="btn btn-sm btn-primary" href="{% url 'library:wallet' reader.pk %}">
             Wallet
           </a>
-          {% endif %}
           <a class="btn btn-sm btn-outline-secondary"
              href="{% url 'library:books' reader.pk %}">Books</a>
           <a class="btn btn-sm btn-outline-secondary"
@@ -104,6 +170,7 @@
   <p class="text-secondary">No reader page for this account.</p>
   {% endfor %}
 </div>
+{% endif %}
 
 {% if cards %}
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
