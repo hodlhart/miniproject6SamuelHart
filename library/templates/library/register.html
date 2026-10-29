@@ -33,7 +33,7 @@
             Your energy order: {{ energy_summary|join:", " }}.
           </div>
           {% else %}
-          <div class="energy-grid registration-grid">
+          <div class="energy-grid">
             {% for tile in energy_tiles %}
             <button type="button" class="energy-tile"
                     data-type="{{ tile.code }}" data-label="{{ tile.label }}">

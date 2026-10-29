@@ -89,19 +89,35 @@ main {
     }
 }
 
+/* Nine energy tiles fit in two rows on a laptop, keeping the submit button on
+   screen. Items fill their tracks from the left, so a final row of four stays
+   flush with the first row rather than shifting towards the centre. */
 .energy-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-}
-
-.registration-grid {
     grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+    justify-items: stretch;
 }
 
-@media (max-width: 576px) {
-    .registration-grid {
+@media (max-width: 991.98px) {
+    .energy-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 575.98px) {
+    .energy-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* On a short laptop the full-width grid still pushes the submit button below
+   the fold. Capping the width shrinks the two rows, and the four tiles in the
+   last row stay flush with the left edge of the tracks above them. */
+@media (min-width: 992px) and (max-height: 700px) {
+    .energy-grid {
+        max-width: 27rem;
+        margin-inline: auto;
     }
 }
 
