@@ -28,6 +28,9 @@
   {% endfor %}
 </div>
 
+{% endblock %}
+
+{% block modals %}
 {% for card in cards %}
 {% include "library/_buy_modal.html" with card=card %}
 {% endfor %}
