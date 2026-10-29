@@ -92,6 +92,7 @@ main {
 /* Nine energy tiles fit in two rows on a laptop, keeping the submit button on
    screen. Items fill their tracks from the left, so a final row of four stays
    flush with the first row rather than shifting towards the centre. */
+/* Registration uses five columns at wide sizes. */
 .energy-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -111,13 +112,26 @@ main {
     }
 }
 
-/* On a short laptop the full-width grid still pushes the submit button below
-   the fold. Capping the width shrinks the two rows, and the four tiles in the
-   last row stay flush with the left edge of the tracks above them. */
-@media (min-width: 992px) and (max-height: 700px) {
-    .energy-grid {
+/* The login keypad is a 3x3 square. Capping its width keeps each tile near
+   the registration tile size, so the nine tiles stay a compact square. */
+.energy-keypad {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 24rem;
+    margin-inline: auto;
+}
+
+@media (max-width: 575.98px) {
+    .energy-keypad {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Under 700px tall, a 3x3 would push the submit below the fold, so the
+   keypad switches to the compact five-column form. */
+@media (min-width: 992px) and (max-height: 699.98px) {
+    .energy-keypad {
+        grid-template-columns: repeat(5, 1fr);
         max-width: 27rem;
-        margin-inline: auto;
     }
 }
 

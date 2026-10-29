@@ -82,7 +82,7 @@
           {{ energy_form.first_type }}
           {{ energy_form.second_type }}
           {{ energy_form.third_type }}
-          <div class="energy-grid">
+          <div class="energy-grid energy-keypad">
             {% for tile in energy_tiles %}
             <button type="button" class="energy-tile"
                     data-type="{{ tile.code }}" data-label="{{ tile.label }}">
