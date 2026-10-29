@@ -19,34 +19,47 @@
 </div>
 
 
-<table class="table table-striped align-middle bg-white">
-  <thead>
-    <tr>
-      <th scope="col">Date</th>
-      <th scope="col">Description</th>
-      <th scope="col" class="text-end">Change</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for line in lines %}
-    <tr>
-      <td class="text-nowrap">{{ line.when|date:"M j, Y g:i a" }}</td>
-      <td>{{ line.description }}</td>
-      <td class="text-end {% if line.change > 0 %}text-success{% else %}text-danger{% endif %}">
-        {% if line.change > 0 %}+{% endif %}{{ line.change }}
-      </td>
-    </tr>
-    {% empty %}
-    <tr>
-      <td colspan="3" class="text-secondary">No readings or purchases yet.</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-  <tfoot>
-    <tr class="fw-bold">
-      <th scope="row" colspan="2">Total</th>
-      <td class="text-end">{{ balance }}</td>
-    </tr>
-  </tfoot>
-</table>
+<div class="table-responsive">
+  <table class="table table-striped align-middle bg-white">
+    <thead>
+      <tr>
+        <th scope="col">Date</th>
+        <th scope="col"><span class="visually-hidden">Artwork</span></th>
+        <th scope="col">Description</th>
+        <th scope="col" class="text-end">Change</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in lines %}
+      <tr>
+        <td class="text-nowrap">{{ line.when|date:"M j, Y g:i a" }}</td>
+        <td>
+          {% if line.artwork %}
+          <img src="{{ line.artwork }}" alt="{{ line.artwork_alt }}"
+               class="book-thumb">
+          {% else %}
+          <span class="book-thumb book-thumb-placeholder" aria-hidden="true">
+            No image
+          </span>
+          {% endif %}
+        </td>
+        <td>{{ line.description }}</td>
+        <td class="text-end {% if line.change > 0 %}text-success{% else %}text-danger{% endif %}">
+          {% if line.change > 0 %}+{% endif %}{{ line.change }}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="text-secondary">No readings or purchases yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="fw-bold">
+        <th scope="row" colspan="3">Total</th>
+        <td class="text-end">{{ balance }}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
 {% endblock %}

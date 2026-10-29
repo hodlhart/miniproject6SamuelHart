@@ -14,24 +14,37 @@
   </div>
 </div>
 
-<table class="table table-striped align-middle bg-white">
-  <thead>
-    <tr>
-      <th scope="col">Book</th>
-      <th scope="col" class="text-end">Chapters read</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for book in books %}
-    <tr>
-      <td>{{ book.title }}</td>
-      <td class="text-end">{{ book.chapters_read }}</td>
-    </tr>
-    {% empty %}
-    <tr>
-      <td colspan="2" class="text-secondary">No books yet.</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-responsive">
+  <table class="table table-striped align-middle bg-white">
+    <thead>
+      <tr>
+        <th scope="col"><span class="visually-hidden">Cover</span></th>
+        <th scope="col">Book</th>
+        <th scope="col" class="text-end">Chapters read</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for book in books %}
+      <tr>
+        <td>
+          {% if book.cached_cover_url %}
+          <img src="{{ book.cached_cover_url }}" alt="Cover of {{ book.title }}"
+               class="book-thumb">
+          {% else %}
+          <span class="book-thumb book-thumb-placeholder" aria-hidden="true">
+            No cover
+          </span>
+          {% endif %}
+        </td>
+        <td>{{ book.title }}</td>
+        <td class="text-end">{{ book.chapters_read }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="3" class="text-secondary">No books yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

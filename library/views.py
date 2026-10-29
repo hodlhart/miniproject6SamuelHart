@@ -62,6 +62,8 @@ class StatementLine:
     when: datetime
     description: str
     change: int
+    artwork: str | None
+    artwork_alt: str
 
 
 def _reader_balance(reader):
@@ -102,6 +104,8 @@ def _statement_lines(reader):
             when=reading.logged_at,
             description=f"Read {reading.chapters} chapters of {reading.book.title}",
             change=reading.chapters,
+            artwork=reading.book.cached_cover_url,
+            artwork_alt=f"Cover of {reading.book.title}",
         )
         for reading in readings
     ]
@@ -110,6 +114,8 @@ def _statement_lines(reader):
             when=purchase.purchased_at,
             description=f"Bought {purchase.card.name}",
             change=-purchase.chapters_spent,
+            artwork=purchase.card.cached_image_url,
+            artwork_alt=f"{purchase.card.name} card art",
         )
         for purchase in purchases
     )
