@@ -1,20 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="P4P">
   <defs>
-    <clipPath id="tile"><rect x="0" y="0" width="32" height="32" rx="7"/></clipPath>
-    <clipPath id="topHalf"><rect x="0" y="0" width="32" height="16"/></clipPath>
-    <clipPath id="botHalf"><rect x="0" y="16" width="32" height="16"/></clipPath>
+    <clipPath id="tile"><rect x="1" y="1" width="29.6" height="29.6" rx="6.5"/></clipPath>
+    <clipPath id="topHalf"><rect x="1" y="1" width="29.6" height="15"/></clipPath>
+    <clipPath id="botHalf"><rect x="1" y="16" width="29.6" height="14.6"/></clipPath>
+    <filter id="logoShadow" x="-40%" y="-40%" width="180%" height="190%">
+      <feDropShadow dx="0.55" dy="0.9" stdDeviation="0.75" flood-color="#173F7D"
+                    flood-opacity="0.45"/>
+    </filter>
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="0.6"/>
+    </filter>
   </defs>
-  <g clip-path="url(#tile)">
-    <rect x="0" y="0" width="32" height="16" fill="#CE3020"/>
-    <rect x="0" y="16" width="32" height="16" fill="#FFFFFF"/>
+  <g filter="url(#logoShadow)">
+    <g clip-path="url(#tile)">
+      <rect x="1" y="1" width="29.6" height="15" fill="#CE3020"/>
+      <rect x="1" y="16" width="29.6" height="14.6" fill="#FFFFFF"/>
+      <path d="M20.8 1.8 h4.6 v8.4 l-2.3 -2 -2.3 2 z" fill="#173F7D" opacity="0.5"
+            filter="url(#soft)"/>
+      <path d="M20 1 h4.6 v8.4 l-2.3 -2 -2.3 2 z" fill="#E8C766"/>
+    </g>
+    <rect x="1" y="1" width="29.6" height="29.6" rx="6.5" fill="none"
+          stroke="#101010" stroke-width="1.3"/>
   </g>
-  <text x="16" y="23" font-family="Helvetica,Arial,sans-serif" font-size="17"
-        font-weight="700" letter-spacing="-1.3" text-anchor="middle"
-        fill="#173F7D">P4P</text>
-  <text x="16" y="23" font-family="Helvetica,Arial,sans-serif" font-size="17"
-        font-weight="700" text-anchor="middle" fill="#FFFFFF"
-        clip-path="url(#topHalf)">4</text>
-  <text x="16" y="23" font-family="Helvetica,Arial,sans-serif" font-size="17"
-        font-weight="700" text-anchor="middle" fill="#CE3020"
-        clip-path="url(#botHalf)">4</text>
+  <text x="16.0" y="22.6" font-family="Helvetica,Arial,sans-serif" font-size="15.5"
+        font-weight="700" letter-spacing="-1.1" text-anchor="middle"
+        fill="#173F7D" opacity="0.70" filter="url(#soft)">P4P</text>
+  <text x="15.3" y="21.7" font-family="Helvetica,Arial,sans-serif" font-size="15.5"
+        font-weight="700" letter-spacing="-1.1" text-anchor="middle"
+        fill="#FFFFFF" clip-path="url(#topHalf)">P4P</text>
+  <text x="15.3" y="21.7" font-family="Helvetica,Arial,sans-serif" font-size="15.5"
+        font-weight="700" letter-spacing="-1.1" text-anchor="middle"
+        fill="#CE3020" clip-path="url(#botHalf)">P4P</text>
 </svg>
