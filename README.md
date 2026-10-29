@@ -98,10 +98,15 @@ the Django admin at `/admin/` and the management pages.
 ## Run the development server
 
 ```bash
-python manage.py runserver
+python manage.py runserver --insecure
 ```
 
 Then open http://127.0.0.1:8000/.
+
+The `--insecure` flag is needed because `DEBUG` is off. Django only serves static
+files itself when `DEBUG` is on, and with it off the stylesheet and the vendored
+Bootstrap return 404, which leaves the app readable but unstyled. The flag serves
+them without turning `DEBUG` back on for everything else.
 
 ## The pages
 
