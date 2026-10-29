@@ -16,6 +16,11 @@ urlpatterns = [
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("readers/<int:reader_id>/", views.wallet, name="wallet"),
     path("readers/<int:reader_id>/log/", views.log_reading, name="log_reading"),
+    path(
+        "readers/<int:reader_id>/quick-log/",
+        views.quick_log,
+        name="quick_log",
+    ),
     path("readers/<int:reader_id>/shop/", views.reader_shop, name="reader_shop"),
     path("readers/<int:reader_id>/books/", views.books, name="books"),
     path("cards/", views.shop, name="shop"),

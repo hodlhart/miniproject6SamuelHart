@@ -101,40 +101,63 @@
            href="{% url 'library:log_reading' own_reader.pk %}">Log reading</a>
 
         <h3 class="h6 mt-4">Recent books</h3>
-        <div class="book-rows">
-          {% for book in recent_books %}
-          <a class="book-row"
-             href="{% url 'library:log_reading' own_reader.pk %}?book={{ book.pk }}">
-            {% if book.cached_cover_url %}
-            <img src="{{ book.cached_cover_url }}" alt="Cover of {{ book.title }}"
-                 class="book-thumb">
-            {% else %}
-            <span class="book-thumb book-thumb-placeholder" aria-hidden="true">
-              No cover
-            </span>
-            {% endif %}
-            <span class="book-row-text">
-              <span class="book-row-title">{{ book.title }}</span>
-              <span class="small text-secondary">{{ book.chapters_read }} chapters logged</span>
-            </span>
-          </a>
-          {% empty %}
-          <p class="text-secondary mb-0">No books logged yet.</p>
-          {% endfor %}
-        </div>
+        <form method="post" action="{% url 'library:quick_log' own_reader.pk %}"
+              id="quick-log-form" data-max="{{ quick_log_limit }}"
+              class="d-flex flex-column flex-grow-1">
+          {% csrf_token %}
+          <div class="book-rows">
+            {% for book in recent_books %}
+            <div class="book-row">
+              {% if book.cached_cover_url %}
+              <img src="{{ book.cached_cover_url }}" alt="Cover of {{ book.title }}"
+                   class="book-thumb">
+              {% else %}
+              <span class="book-thumb book-thumb-placeholder" aria-hidden="true">
+                No cover
+              </span>
+              {% endif %}
+              <span class="book-row-text">
+                <span class="book-row-title">{{ book.title }}</span>
+                <span class="small text-secondary">{{ book.chapters_read }} chapters logged</span>
+              </span>
+              <div class="stepper" role="group"
+                   aria-label="Quick log for {{ book.title }}">
+                <button type="button" class="stepper-button" data-step="-1"
+                        aria-label="Remove a chapter from {{ book.title }}" disabled>
+                  <span aria-hidden="true">&minus;</span>
+                </button>
+                <span class="visually-hidden">Chapters to log for {{ book.title }}:</span>
+                <output class="stepper-value" aria-live="polite">0</output>
+                <button type="button" class="stepper-button" data-step="1"
+                        aria-label="Add a chapter to {{ book.title }}">
+                  <span aria-hidden="true">+</span>
+                </button>
+                <input type="hidden" name="count_{{ book.pk }}" value="0" disabled>
+              </div>
+            </div>
+            {% empty %}
+            <p class="text-secondary mb-0">No books logged yet.</p>
+            {% endfor %}
+          </div>
 
-        <div class="d-flex gap-2 mt-auto pt-3">
-          <a class="btn btn-outline-secondary flex-fill"
-             href="{% url 'library:log_reading' own_reader.pk %}?new=1">
-            <span aria-hidden="true">+</span> New book
-          </a>
-          <a class="btn btn-outline-primary flex-fill"
-             href="{% url 'library:log_reading' own_reader.pk %}">Log</a>
-        </div>
+          <div class="d-flex gap-2 mt-auto pt-3">
+            <a class="btn btn-outline-secondary flex-fill"
+               href="{% url 'library:log_reading' own_reader.pk %}?new=1">
+              <span aria-hidden="true">+</span> New book
+            </a>
+            <a class="btn btn-outline-primary flex-fill"
+               href="{% url 'library:log_reading' own_reader.pk %}">Log</a>
+          </div>
+          <button type="submit" id="quick-log-submit"
+                  class="btn btn-primary w-100 mt-2" disabled>
+            Set a count to log
+          </button>
+        </form>
       </div>
     </div>
   </div>
 </div>
+{% include "library/_quick_log_script.html" %}
 
 {% else %}
 <div class="row g-3 mb-5">

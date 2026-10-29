@@ -1,0 +1,55 @@
+<script>
+(function () {
+  const form = document.getElementById("quick-log-form");
+  if (!form) {
+    return;
+  }
+  const limit = parseInt(form.dataset.max, 10);
+  const submit = document.getElementById("quick-log-submit");
+
+  function syncSubmit() {
+    let total = 0;
+    form.querySelectorAll(".stepper-value").forEach(function (output) {
+      total += parseInt(output.textContent, 10);
+    });
+    if (total === 0) {
+      submit.disabled = true;
+      submit.textContent = "Set a count to log";
+    } else {
+      submit.disabled = false;
+      submit.textContent = "Log " + total +
+        (total === 1 ? " chapter" : " chapters");
+    }
+  }
+
+  form.querySelectorAll(".stepper").forEach(function (stepper) {
+    const output = stepper.querySelector(".stepper-value");
+    const input = stepper.querySelector("input[type=hidden]");
+    const minus = stepper.querySelector('[data-step="-1"]');
+    const plus = stepper.querySelector('[data-step="1"]');
+    let value = 0;
+
+    function render() {
+      output.textContent = value;
+      input.value = value;
+      // A disabled input is left out of the POST, so zero rows are skipped.
+      input.disabled = value === 0;
+      minus.disabled = value === 0;
+      plus.disabled = value === limit;
+    }
+
+    stepper.querySelectorAll(".stepper-button").forEach(function (button) {
+      button.addEventListener("click", function () {
+        const step = parseInt(button.dataset.step, 10);
+        value = Math.min(limit, Math.max(0, value + step));
+        render();
+        syncSubmit();
+      });
+    });
+
+    render();
+  });
+
+  syncSubmit();
+})();
+</script>

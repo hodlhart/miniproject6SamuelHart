@@ -52,6 +52,7 @@ ART_CONTENT_TYPES = {
     ".img": "application/octet-stream",
 }
 MAX_ENERGY_FAILURES = 5
+QUICK_LOG_LIMIT = 20
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,17 @@ def _reading_message(reading):
     """Return the success message for a newly logged reading."""
     unit = "chapter" if reading.chapters == 1 else "chapters"
     return f"Logged {reading.chapters} {unit} of {reading.book.title}."
+
+
+def _quick_log_message(entries):
+    """Return a sentence naming each book and count that was logged."""
+    parts = [
+        f"{count} {('chapter' if count == 1 else 'chapters')} of {book.title}"
+        for book, count in entries
+    ]
+    if len(parts) == 1:
+        return f"Logged {parts[0]}."
+    return "Logged " + ", ".join(parts[:-1]) + " and " + parts[-1] + "."
 
 
 def _statement_lines(reader):
@@ -423,6 +435,7 @@ def index(request):
             "own_reader": own_reader,
             "recent_lines": recent_lines,
             "recent_books": recent_books,
+            "quick_log_limit": QUICK_LOG_LIMIT,
         },
     )
 
@@ -510,6 +523,49 @@ def log_reading(request, reader_id):
             "lookup_error": lookup_error,
         },
     )
+
+
+@reader_required
+@require_POST
+def quick_log(request, reader_id):
+    """Record one reading per recent book with a positive stepper count."""
+    reader = _get_active_reader(reader_id)
+    entries = []
+    seen = set()
+    for key, raw in request.POST.items():
+        if not key.startswith("count_"):
+            continue
+        try:
+            book_id = int(key.removeprefix("count_"))
+            count = int(raw)
+        except ValueError:
+            messages.error(request, "Those chapter counts are not valid.")
+            return redirect("library:index")
+        if count < 1 or count > QUICK_LOG_LIMIT:
+            messages.error(
+                request,
+                f"Log between 1 and {QUICK_LOG_LIMIT} chapters for each book.",
+            )
+            return redirect("library:index")
+        # The lookup is scoped to this reader's shelf, so another reader's
+        # book id cannot create a reading here.
+        book = reader.books.filter(pk=book_id).first()
+        if book is None:
+            messages.error(request, "That book is not on this reader's shelf.")
+            return redirect("library:index")
+        if book.pk in seen:
+            messages.error(request, "Each book can be logged only once.")
+            return redirect("library:index")
+        seen.add(book.pk)
+        entries.append((book, count))
+    if not entries:
+        messages.error(request, "Choose at least one chapter to log.")
+        return redirect("library:index")
+    with transaction.atomic():
+        for book, count in entries:
+            Reading.objects.create(book=book, chapters=count)
+    messages.success(request, _quick_log_message(entries))
+    return redirect("library:index")
 
 
 @reader_required
