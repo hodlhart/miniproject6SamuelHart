@@ -8,7 +8,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.hashers import make_password
 from django.utils.text import slugify
 
-from .energy import ENERGY_TYPES, available_energy_types
+from .energy import ENERGY_TYPES
 from .models import Book, Card, Profile, Reading
 
 
@@ -75,13 +75,6 @@ class EnergyRegistrationForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, **kwargs):
-        """Limit the type choices to energy types whose artwork is cached."""
-        super().__init__(*args, **kwargs)
-        choices = available_energy_types()
-        for name in ("first_type", "second_type", "third_type"):
-            self.fields[name].choices = choices
-
     def clean(self):
         """Require three different energy types."""
         cleaned_data = super().clean()
@@ -125,13 +118,6 @@ class EnergyResetForm(forms.Form):
         choices=ENERGY_TYPES,
         widget=forms.Select(attrs={"class": "form-select"}),
     )
-
-    def __init__(self, *args, **kwargs):
-        """Limit the type choices to energy types whose artwork is cached."""
-        super().__init__(*args, **kwargs)
-        choices = available_energy_types()
-        for name in ("first_type", "second_type", "third_type"):
-            self.fields[name].choices = choices
 
     def clean(self):
         """Require three different energy types."""

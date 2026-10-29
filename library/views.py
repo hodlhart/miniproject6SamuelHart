@@ -286,11 +286,7 @@ def _identified_login_context(request, username, next_url):
     context.update({
         "stage": "energy",
         "energy_form": EnergySequenceForm(),
-        "energy_tiles": build_energy_grid([
-            profile.first_type,
-            profile.second_type,
-            profile.third_type,
-        ]),
+        "energy_tiles": build_energy_grid(),
         "username": username,
     })
     return context

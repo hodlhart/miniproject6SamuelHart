@@ -30,7 +30,6 @@ ENERGY_TYPES = (
     ("darkness", "Darkness"),
     ("metal", "Metal"),
     ("fairy", "Fairy"),
-    ("dragon", "Dragon"),
 )
 ENERGY_TYPE_LABELS = dict(ENERGY_TYPES)
 PRINTS_PER_TYPE = 5
@@ -88,6 +87,7 @@ def cache_energy_deck():
     already = 0
     missing = 0
     result = {}
+    errors = []
 
     for code, label in ENERGY_TYPES:
         names = _existing_names(deck.get(code, []))[:PRINTS_PER_TYPE]
@@ -99,7 +99,8 @@ def cache_energy_deck():
         seen = set(names)
         try:
             rows = search_tcgdex(f"{label} energy", limit=None)
-        except LookupUnavailable:
+        except LookupUnavailable as exc:
+            errors.append(str(exc))
             rows = []
         for row in rows:
             if len(names) >= PRINTS_PER_TYPE:
@@ -112,7 +113,8 @@ def cache_energy_deck():
                 continue
             try:
                 record = fetch_tcgdex_card(row["id"])
-            except LookupUnavailable:
+            except LookupUnavailable as exc:
+                errors.append(str(exc))
                 continue
             if record is None:
                 continue
@@ -140,11 +142,18 @@ def cache_energy_deck():
             names.append(name)
         if names:
             result[code] = names
-            if len(names) < PRINTS_PER_TYPE:
-                missing += PRINTS_PER_TYPE - len(names)
+        missing += PRINTS_PER_TYPE - len(names)
 
     _write_energy_deck(result)
-    return {"fetched": fetched, "already": already, "missing": missing}
+    return {
+        "fetched": fetched,
+        "already": already,
+        "missing": missing,
+        "errors": list(dict.fromkeys(errors)),
+        "types_without_prints": [
+            label for code, label in ENERGY_TYPES if not result.get(code)
+        ],
+    }
 
 
 def energy_print_urls(type_code, deck=None):
@@ -169,41 +178,22 @@ def available_energy_types(deck=None):
     ]
 
 
-def build_energy_grid(required_types, deck=None, size=9):
-    """Return distinct energy tiles for available types, including required ones."""
-    if deck is None:
-        deck = load_energy_deck()
-    available = [code for code, _ in available_energy_types(deck)]
-    required = list(
-        dict.fromkeys(code for code in required_types if code in available)
-    )
-    pool = [code for code in available if code not in required]
-    extra = random.sample(pool, min(size - len(required), len(pool)))
-    codes = required + extra
-    random.shuffle(codes)
-
-    tiles = []
-    for code in codes:
-        urls = energy_print_urls(code, deck)
-        tiles.append({
-            "code": code,
-            "label": ENERGY_TYPE_LABELS[code],
-            "image_url": random.choice(urls),
-        })
-    return tiles
-
-
-def build_registration_grid(deck=None):
-    """Return one tile per available energy type for the registration picker."""
+def build_energy_grid(deck=None):
+    """Return all nine energy tiles, with art where a print is cached."""
     if deck is None:
         deck = load_energy_deck()
     tiles = []
-    for code, label in available_energy_types(deck):
+    for code, label in ENERGY_TYPES:
         urls = energy_print_urls(code, deck)
         tiles.append({
             "code": code,
             "label": label,
-            "image_url": random.choice(urls),
+            "image_url": random.choice(urls) if urls else None,
         })
     random.shuffle(tiles)
     return tiles
+
+
+def build_registration_grid(deck=None):
+    """Return all nine energy tiles for the registration picker."""
+    return build_energy_grid(deck=deck)

@@ -3,10 +3,10 @@
 # Mini Project 6
 
 from django.conf import settings
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from library.artcache import cache_remote_art, local_name_for_url
-from library.energy import cache_energy_deck
+from library.energy import ENERGY_TYPES, cache_energy_deck
 from library.lookups import build_cover_url
 from library.models import Book, Card
 
@@ -14,7 +14,10 @@ from library.models import Book, Card
 class Command(BaseCommand):
     """Fetch card, cover, and energy artwork into the local cache."""
 
-    help = "Fetch card, book cover, and energy artwork into the local cache."
+    help = (
+        "Fetch card, book cover, and energy artwork into the local cache. "
+        "Fails when the energy deck has no print for a type."
+    )
 
     def handle(self, *args, **options):
         """Fetch missing artwork and report fetched, cached and failed counts."""
@@ -52,3 +55,17 @@ class Command(BaseCommand):
             f"Already cached: {energy['already']} | "
             f"Missing prints: {energy['missing']}"
         )
+        self.stdout.flush()
+        if energy["types_without_prints"]:
+            missing = ", ".join(energy["types_without_prints"])
+            if len(energy["types_without_prints"]) == len(ENERGY_TYPES):
+                headline = "Energy deck is empty"
+            else:
+                headline = "Energy deck incomplete"
+            cause = ""
+            if energy["errors"]:
+                cause = " Lookup failed: " + "; ".join(energy["errors"]) + "."
+            raise CommandError(
+                f"{headline}: no cached print for {missing}.{cause} "
+                "The login grid still works with labelled tiles."
+            )

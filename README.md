@@ -71,7 +71,10 @@ python manage.py cache-art
 
 This fetches every card image, book cover and energy print into `media/art-cache/`,
 which is gitignored. It is safe to run repeatedly and reports what it fetched, what it
-already had, and what it could not reach.
+already had, and what it could not reach. The login does not depend on that folder:
+with an empty cache the energy grid shows nine labelled tiles instead of card art,
+so a reader can still sign in. If a type ends up with no cached print, `cache-art`
+names the missing types and the lookup error, and exits non-zero.
 
 ## Create the parent account
 
@@ -132,7 +135,9 @@ A reader does not have a password. They have three energy types in a fixed order
 they sign in by tapping them on a grid of nine energy cards. The grid holds nine
 different types, not just their three, so someone watching the screen cannot read the
 answer off it, and it reshuffles on every attempt. The individual card does not matter,
-only the type, so the artwork can rotate freely.
+only the type, so the artwork can rotate freely. Tiles use cached prints when they are
+present and show the type name otherwise, so the grid works on a fresh clone before any
+artwork has been fetched.
 
 The check happens on the server against a hashed sequence. Five wrong tries and the
 reader is asked to fetch a parent, who can reset the order from `/manage/readers/`.
