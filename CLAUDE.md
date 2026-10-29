@@ -13,9 +13,10 @@ Pokemon cards their parents already own. This is a real app used at home, not a 
   "Wings of Fire" and "wings of fire" must not both exist for one reader.
 - **A card's catalogue id is unique and never null.** A nullable unique column is not a
   guarantee, because the database accepts any number of nulls in it.
-- **Readers do not have passwords.** A kid picks their name from a list; only the parent
-  account has a username and password. This is deliberate: the app runs on a home network and
-  the family chooses trust over authentication. Do not add a login requirement for readers.
+- **Readers sign in with three energy types in order, not a password.** A kid picks their name
+  from the list, then taps their three types on a grid of nine energy cards. The order is the
+  secret; the individual card is not, so any print of a type counts and the grid reshuffles on
+  every visit. Only the parent account has a username and password.
 - **The same reading may be logged twice.** That is accepted rather than guarded. Do not add a
   duplicate check, a per-day cap, or a confirmation step.
 - **A parent owns the card inventory and sets each card's price directly.** The tier suggests a
@@ -28,8 +29,9 @@ Pokemon cards their parents already own. This is a real app used at home, not a 
 
 ## Out of scope
 
-- No API keys. The card catalogue needs none.
-- No public registration. A parent creates accounts.
+- No API keys. The card and book catalogues need none.
+- Registration is open to the family. A reader builds their own account by choosing three energy
+  types and a portrait. The management pages stay behind the parent password.
 - Card artwork is never committed to the repository. It is referenced by URL and cached at run
   time into a gitignored folder.
 
