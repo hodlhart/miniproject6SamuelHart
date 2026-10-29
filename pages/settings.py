@@ -14,6 +14,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 from django.contrib.messages import constants as message_constants
@@ -22,17 +23,44 @@ from django.contrib.messages import constants as message_constants
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def env_list(name, default):
+    """Return a comma-separated environment value, or the default list."""
+    raw = os.environ.get(name, "")
+    values = [item.strip() for item in raw.split(",") if item.strip()]
+    return values or default
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-zapth!n-46_(f2ni^1p-jdt2z)@z2ds2-ky8-r%)4$^b3s2ugy'
+# The key that used to sit here is still in git history and must be treated as
+# compromised. It is worthless now, so never reuse it. A real deployment sets
+# DJANGO_SECRET_KEY to a fresh value generated with
+# django.core.management.utils.get_random_secret_key and keeps it out of git.
+# This fallback is deliberately obvious and only for local development.
+SECRET_KEY = os.environ.get(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-local-development-only-not-a-secret",
+)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Safe default: a deployment that configures nothing does not expose debug.
+DEBUG = os.environ.get("DJANGO_DEBUG", "").lower() in {"1", "true", "yes", "on"}
 
-# The deployed box's address is added here later.
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+# The deployed hostname comes from the environment and is never committed.
+ALLOWED_HOSTS = env_list(
+    "DJANGO_ALLOWED_HOSTS", ["127.0.0.1", "localhost"]
+)
+
+# The site runs behind a proxy that terminates TLS, so these are HTTPS origins
+# in the environment. Local defaults stay HTTP for runserver.
+CSRF_TRUSTED_ORIGINS = env_list(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    ["http://127.0.0.1", "http://localhost"],
+)
+
+# Without this, a proxied HTTPS request looks insecure to Django, so the CSRF
+# origin check compares against http:// and rejects every form submission.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Application definition

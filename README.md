@@ -155,15 +155,28 @@ copyrighted images and keeps the app working offline once the cache is warm.
 
 ## Deploying elsewhere
 
-The project runs with `DEBUG = True` and `ALLOWED_HOSTS` limited to localhost, which is
-right for development and wrong for a public address. To serve it from a host:
+The committed defaults are safe for local work: `DEBUG` is off, and only
+`127.0.0.1` and `localhost` are accepted. A deployment supplies its own values
+through the environment, so no hostname or secret is committed:
 
-- add the hostname to `ALLOWED_HOSTS`, keeping `127.0.0.1` and `localhost` for local work
-- add the site's `https://` origin to `CSRF_TRUSTED_ORIGINS`
-- set `SECURE_PROXY_SSL_HEADER` if a proxy terminates TLS in front of Django
-- set `DEBUG = False`, and run with `runserver 0.0.0.0:8000 --insecure` or serve static
-  files properly, because `runserver` stops serving them once `DEBUG` is off
-- replace `SECRET_KEY` with a value that is not in this repository
+- `DJANGO_SECRET_KEY`: a fresh key from Django's own generator:
+
+  ```bash
+  python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"
+  ```
+
+  The old key remains in git history and is worthless; do not reuse it.
+- `DJANGO_DEBUG`: leave unset (off) on a server, or set `1` for local debugging.
+- `DJANGO_ALLOWED_HOSTS`: comma-separated hostnames, for example the public
+  hostname plus `127.0.0.1,localhost`.
+- `DJANGO_CSRF_TRUSTED_ORIGINS`: comma-separated origins with their scheme,
+  for example the site's `https://` origin plus `http://127.0.0.1,http://localhost`.
+
+TLS terminates at a proxy, which sets `X-Forwarded-Proto`; `SECURE_PROXY_SSL_HEADER`
+tells Django to trust it, so HTTPS form submissions pass the CSRF origin check.
+With `DEBUG` off, `runserver` does not serve static files, so the deployment
+command is `python manage.py runserver 0.0.0.0:8000 --insecure` (or a real
+static file server in front of it).
 
 ## AI Usage
 
