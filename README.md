@@ -39,8 +39,21 @@ uv pip install -r requirements.txt
 
 ## Initialize the database
 
+The migrations are committed, so a fresh clone only has to apply them. The first two
+commands are the ones the course asks to see documented:
+
 ```bash
+python manage.py makemigrations
 python manage.py migrate
+```
+
+`makemigrations` reports "No changes detected" on a fresh clone, because the migration
+files are already in the repository. It is listed because it is the command you run after
+changing a model, and it must be run before `migrate` picks the change up.
+
+Then fill the database with the demo household:
+
+```bash
 python manage.py seed-demo
 ```
 
@@ -62,12 +75,22 @@ already had, and what it could not reach.
 
 ## Create the parent account
 
-`seed-demo` creates the parent with an unusable password on purpose, so no credential
-is ever written to a file in this repository. Set one yourself:
+The course lists `createsuperuser` as one of the commands to document, and it works here:
+
+```bash
+python manage.py createsuperuser
+```
+
+There is a shortcut, because `seed-demo` already creates a staff account named `parent`
+with an unusable password. To give that account a password instead of making another one:
 
 ```bash
 python manage.py changepassword parent
 ```
+
+Either route gives you a parent login. A staff account never appears in the reader list,
+because the front page shows non-staff accounts only, so the parent is not offered as a
+reader to sign in as.
 
 The parent signs in at `/accounts/login/` with that username and password, and reaches
 the Django admin at `/admin/` and the management pages.
