@@ -8,13 +8,13 @@
     <rect x="0" y="0" width="32" height="16" fill="#CE3020"/>
     <rect x="0" y="16" width="32" height="16" fill="#FFFFFF"/>
   </g>
-  <text x="16" y="22.6" font-family="Helvetica,Arial,sans-serif" font-size="14.5"
-        font-weight="700" letter-spacing="-1.1" text-anchor="middle"
+  <text x="16" y="23" font-family="Helvetica,Arial,sans-serif" font-size="17"
+        font-weight="700" letter-spacing="-1.3" text-anchor="middle"
         fill="#173F7D">P4P</text>
-  <text x="16" y="22.6" font-family="Helvetica,Arial,sans-serif" font-size="14.5"
+  <text x="16" y="23" font-family="Helvetica,Arial,sans-serif" font-size="17"
         font-weight="700" text-anchor="middle" fill="#FFFFFF"
         clip-path="url(#topHalf)">4</text>
-  <text x="16" y="22.6" font-family="Helvetica,Arial,sans-serif" font-size="14.5"
+  <text x="16" y="23" font-family="Helvetica,Arial,sans-serif" font-size="17"
         font-weight="700" text-anchor="middle" fill="#CE3020"
         clip-path="url(#botHalf)">4</text>
 </svg>
