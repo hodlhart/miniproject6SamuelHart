@@ -1,5 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Pages for Pokemon">
-  <rect x="2.5" y="1.5" width="27" height="29" rx="4" fill="#FBF3E4" stroke="#101010" stroke-width="2.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img"
+     aria-label="Pages for Pokemon">
+  <rect x="2.5" y="1.5" width="27" height="29" rx="4"
+        fill="#FBF3E4" stroke="#101010" stroke-width="2.5"/>
   <rect x="6.5" y="5.5" width="19" height="11" rx="2" fill="#1B4E9B"/>
   <path d="M19 18 L12 23.6 h4.8 l-2 4 7.4-6.4 h-4.8 z"
         fill="#F5CE3E" stroke="#101010" stroke-width="1.4" stroke-linejoin="round"/>
