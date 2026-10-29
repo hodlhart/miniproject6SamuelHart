@@ -167,6 +167,17 @@ because the app runs on tablets.
 I also set the trust model: no duplicate-reading guard, no daily cap, no confirmation on
 logging. That is a deliberate tradeoff for a family app and it is described above.
 
+Later decisions came from using the app rather than planning it. The landing page had a
+full width blue Log reading bar above an account card that filled a third of the row,
+leaving the rest empty, so I had that area split into two columns grouped by purpose:
+who the reader is on the left, what they do on the right. Filling the gap with a button
+alone would have left a tall void, so the recent books went into that column too. I asked
+for a chapter stepper beside each recent book, one chapter per tap, committed by the Log
+button. The energy grid on the login page had to stop scrolling, so it now uses five
+columns instead of three, which is the layout registration already had. I asked for the
+thumbnail treatment on the parent's card list and for the book covers to be true
+thumbnails rather than full size images.
+
 Verification was mine throughout. I ran the app in a browser after every step and
 clicked through it, which is how several problems surfaced: a Buy button that silently
 returned to the same page without saying anything, reader pages that answered to
@@ -187,3 +198,32 @@ and keeping only the removal I intended. The change is at commit `5ccbf96`.
 I also removed the camera capture feature from the plan after testing showed the
 recognized text from a clean card image did not include the collector number at all,
 which was the whole basis for identifying a card from a photograph.
+
+My second change was to the stylesheet loading. While working on the styling I kept
+changing `app.css` and reloading to see no difference, because the browser was reusing the
+copy it already had: the link tag named the file with no version, so from the browser's
+point of view the address never changed. A version parameter fixes it, and the honest
+version of that is the file's own modification time rather than something arbitrary, so the
+address changes exactly when the file does and not otherwise.
+
+I wrote it in `library/context_processors.py`, since a Django template cannot read
+`settings` directly and a context processor is the supported way to hand a value to every
+page:
+
+```python
+def static_version(request):
+    """Return the app stylesheet's modification time, so a change is never served stale."""
+    stylesheet = Path(settings.BASE_DIR) / "static" / "app.css"
+    try:
+        return {"STATIC_VERSION": int(stylesheet.stat().st_mtime)}
+    except OSError:
+        return {"STATIC_VERSION": 0}
+```
+
+I registered it in `TEMPLATES` beside the wallpaper processor, and changed one line of
+`base.html` to append `?v={{ STATIC_VERSION }}` to the stylesheet address. I left the
+Bootstrap link alone, because that file never changes.
+
+This matters beyond my own convenience. A visitor's first load on a deployed host would
+otherwise be able to render a stale stylesheet against new HTML, which looks like a broken
+layout rather than a caching problem.

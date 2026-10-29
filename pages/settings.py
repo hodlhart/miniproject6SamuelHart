@@ -70,6 +70,9 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'library.context_processors.wallpaper',
+                'library.context_processors.wallpaper',
+                'library.context_processors.static_version',
+
             ],
         },
     },
