@@ -216,10 +216,20 @@ class CardForm(forms.ModelForm):
         return card
 
 
+class BookTitleChoiceField(forms.ModelChoiceField):
+    """Label books by title alone for a picker scoped to one reader."""
+
+    def label_from_instance(self, obj):
+        """Return the title without the owner that Book.__str__ appends."""
+        return obj.title
+
+
 class LogReadingForm(forms.ModelForm):
     """Record chapters read, choosing an owned book or naming a new one."""
 
-    book = forms.ModelChoiceField(
+    # The queryset holds only this reader's books, so the owner that
+    # Book.__str__ adds for admin would repeat the name on every line.
+    book = BookTitleChoiceField(
         queryset=Book.objects.none(),
         required=False,
         empty_label="Select a book",

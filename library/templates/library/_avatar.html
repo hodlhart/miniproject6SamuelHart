@@ -1,5 +1,5 @@
 {% if avatar_url %}
-<img src="{{ avatar_url }}" alt="{{ name }}'s picture" class="avatar-mini">
+<img src="{{ avatar_url }}" alt="{{ name }}'s picture" class="{{ css_class }}">
 {% else %}
-<span class="avatar-mini avatar-default" aria-hidden="true">{{ initial }}</span>
+<span class="{{ css_class }} avatar-default" aria-hidden="true">{{ initial }}</span>
 {% endif %}

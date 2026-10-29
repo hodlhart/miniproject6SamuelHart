@@ -8,6 +8,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from library.artcache import cached_art_name
+from library.avatars import search_avatar_candidates
+from library.lookups import LookupUnavailable
 from library.models import Book, Card, Profile, Purchase, Reading
 
 PARENT_USERNAME = "parent"
@@ -17,6 +19,15 @@ READERS = {
     "maya": ("fire", "water", "grass"),
     "leo": ("lightning", "psychic", "fighting"),
     "zoe": ("darkness", "metal", "fairy"),
+}
+
+# Each reader gets a different, easily recognised Pokemon portrait. The
+# artwork is found and cached through the same helper the registration page
+# uses, so the picker shows cards from the first run.
+PORTRAITS = {
+    "maya": "Pikachu",
+    "leo": "Charizard",
+    "zoe": "Gengar",
 }
 
 BOOKS = {
@@ -84,9 +95,12 @@ PURCHASES = (
 
 
 class Command(BaseCommand):
-    """Seed a believable demo family into an empty database."""
+    """Seed a demo family, fetching a card portrait for each reader."""
 
-    help = "Seed a believable demo family into an empty database."
+    help = (
+        "Seed a believable demo family into an empty database. Each reader "
+        "gets a portrait, so this command needs network access to TCGdex."
+    )
 
     def add_arguments(self, parser):
         """Add the --force flag."""
@@ -124,6 +138,7 @@ class Command(BaseCommand):
             "purchases": 0,
         }
         skipped = []
+        self.portraits = {}
 
         with transaction.atomic():
             if force:
@@ -182,23 +197,49 @@ class Command(BaseCommand):
         return True
 
     def _seed_readers(self, counts):
-        """Create the three readers with Profiles and return them by name."""
+        """Create the three readers with Profiles and portraits, by name."""
         readers = {}
         for username, energy_types in READERS.items():
             user = get_user_model().objects.create_user(username=username)
             user.set_unusable_password()
             user.save(update_fields=["password"])
             first, second, third = energy_types
-            Profile.objects.create(
+            profile = Profile.objects.create(
                 user=user,
                 first_type=first,
                 second_type=second,
                 third_type=third,
                 energy_hash=make_password(f"{first}:{second}:{third}"),
             )
+            self._choose_portrait(username, profile)
             readers[username] = user
             counts["readers"] += 1
         return readers
+
+    def _choose_portrait(self, username, profile):
+        """Find card art for this reader's Pokemon and store the first match."""
+        pokemon = PORTRAITS[username]
+        try:
+            candidates = search_avatar_candidates(pokemon)
+        except LookupUnavailable as exc:
+            raise CommandError(
+                f"TCGdex could not be reached while choosing a portrait for "
+                f"{username!r} ({pokemon}). Seeding needs the network for "
+                "portraits."
+            ) from exc
+        if not candidates:
+            raise CommandError(
+                f"TCGdex returned no card art for {pokemon} ({username})."
+            )
+        # Searches often list promo prints first; the plain-name card is the
+        # one a child recognises, so prefer it when the search offers it.
+        candidate = next(
+            (item for item in candidates if item["name"] == pokemon),
+            candidates[0],
+        )
+        profile.avatar_url = candidate["remote_url"]
+        profile.save(update_fields=["avatar_url"])
+        self.portraits[username] = candidate
 
     def _seed_cards(self, counts):
         """Create the demo cards and return them by name."""
@@ -244,6 +285,11 @@ class Command(BaseCommand):
             self.stdout.write(
                 f'Created reader "{username}" with energy order '
                 f"{', '.join(energy_types)}."
+            )
+            portrait = self.portraits[username]
+            self.stdout.write(
+                f'  Portrait: {portrait["name"]} '
+                f'({portrait["id"]}, {portrait["size"]} bytes).'
             )
         self.stdout.write(
             f"Created {counts['books']} books, {counts['readings']} readings, "
